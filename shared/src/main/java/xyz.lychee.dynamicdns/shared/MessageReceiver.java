@@ -6,12 +6,18 @@ import lombok.Getter;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,6 +32,16 @@ public abstract class MessageReceiver {
     public MessageReceiver(Logger logger, YamlDocument config) {
         this.config = config;
         this.logger = logger;
+    }
+
+    public static Cipher createCipher(String token, int mode) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
+        byte[] keyBytes = new byte[16];
+        byte[] tokenBytes = token.getBytes();
+        System.arraycopy(tokenBytes, 0, keyBytes, 0, Math.min(tokenBytes.length, keyBytes.length));
+
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(mode, new SecretKeySpec(keyBytes, "AES"));
+        return cipher;
     }
 
     public void loadServers(String token) {
@@ -95,16 +111,6 @@ public abstract class MessageReceiver {
 
         t.setName("DynamicDNS-Server");
         t.start();
-    }
-
-    public static Cipher createCipher(String token, int mode) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-        byte[] keyBytes = new byte[16];
-        byte[] tokenBytes = token.getBytes();
-        System.arraycopy(tokenBytes, 0, keyBytes, 0, Math.min(tokenBytes.length, keyBytes.length));
-
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(mode, new SecretKeySpec(keyBytes, "AES"));
-        return cipher;
     }
 
     private byte[] readAllBytes(InputStream inputStream) throws IOException {

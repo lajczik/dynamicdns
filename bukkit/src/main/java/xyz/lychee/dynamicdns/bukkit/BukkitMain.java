@@ -9,12 +9,16 @@ import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import xyz.lychee.dynamicdns.shared.*;
+import xyz.lychee.dynamicdns.shared.AddressUtil;
+import xyz.lychee.dynamicdns.shared.DynuHook;
+import xyz.lychee.dynamicdns.shared.MessageReceiver;
+import xyz.lychee.dynamicdns.shared.NgrokHook;
 
 import javax.crypto.Cipher;
 import java.io.File;
 import java.io.IOException;
-import java.net.*;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
 public class BukkitMain extends JavaPlugin {
@@ -24,9 +28,9 @@ public class BukkitMain extends JavaPlugin {
     private Metrics metrics;
     private NgrokHook ngrok;
     private DynuHook dynu;
-	
+
     public void onEnable() {
-    	instance = this;
+        instance = this;
         this.metrics = new Metrics(this, 27000);
 
         try {

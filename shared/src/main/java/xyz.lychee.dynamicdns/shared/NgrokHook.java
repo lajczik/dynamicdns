@@ -44,7 +44,7 @@ public class NgrokHook {
 
         final CreateTunnel createTunnel = new CreateTunnel.Builder()
                 .withProto(Proto.TCP)
-                .withAddr(this.address.getHostString()+":"+this.address.getPort())
+                .withAddr(this.address.getHostString() + ":" + this.address.getPort())
                 .build();
 
         this.tunnel = this.ngrokClient.connect(createTunnel);
