@@ -1,0 +1,41 @@
+# Configuration for ngrok – creates secure tunnels to local servers
+ngrok:
+  # Set to true to enable ngrok tunneling
+  enabled: false
+  # Authentication token for your ngrok account
+  token: ''
+  # Ngrok region (e.g., US, EU, AP, AU, SA)
+  region: US
+
+# Configuration for Dynu Dynamic DNS – updates a domain record with your current IP address
+dynu:
+  # Set to true to enable Dynu DDNS updates
+  enabled: false
+  # Domain name to be updated (e.g., yourdomain.dynu.com)
+  domain: example.dynu.com
+  # Dynu API client ID or username
+  client: ''
+  # Dynu API secret or password
+  secret: ''
+
+# -------> PROXY ONLY! <-------
+# Socket server – listens for connections from backend servers and updates their IP addresses in the proxy
+socket_server:
+  # Set to true to run the socket server (on the proxy side)
+  enabled: false
+  # IP address and port on which the server listens for incoming connections
+  bind: "0.0.0.0:39123"
+
+# -------> BUKKIT ONLY! <-------
+# Socket client – sends a connection request to the proxy so the proxy can update this server's IP address
+socket_client:
+  # Set to true to enable the client (on the Bukkit server side)
+  enabled: false
+  # Unique identifier for this server (used by the proxy to distinguish servers)
+  name: "survival"
+  # Shared secret for authenticating with the proxy
+  token: "token"
+  # Public static IP address and port of the socket server (the proxy)
+  target_address: "123.123.123.123:39123"
+  # Interval in seconds between client update requests sent to the proxy
+  interval: 30

@@ -1,0 +1,5 @@
+author: lychee
+version: ${project.version}
+main: xyz.lychee.dynamicdns.bukkit.BukkitMain
+name: DynamicDNS
+api-version: 1.13

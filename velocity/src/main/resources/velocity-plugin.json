@@ -1,0 +1,8 @@
+{
+  "id": "dynamicdns",
+  "name": "DynamicDNS",
+  "version": "${project.version}",
+  "authors": ["lychee"],
+  "dependencies": [],
+  "main": "xyz.lychee.dynamicdns.velocity.VelocityMain"
+}
