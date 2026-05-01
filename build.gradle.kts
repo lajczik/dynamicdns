@@ -57,23 +57,25 @@ allprojects {
         annotationProcessor("org.projectlombok:lombok:1.18.44")
     }
 
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
     tasks {
         compileJava {
             options.encoding = "UTF-8"
         }
+    }
 
-        processResources {
-            filesMatching("**/plugin.yml") {
-                expand(rootProject.project.properties)
+    configurations {
+        compileClasspath {
+            attributes {
+                attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
             }
-            filesMatching("**/bungee.yml") {
-                expand(rootProject.project.properties)
-            }
-            filesMatching("**/velocity-plugin.json") {
-                expand(rootProject.project.properties)
-            }
-
-            outputs.upToDateWhen { false }
         }
     }
 }

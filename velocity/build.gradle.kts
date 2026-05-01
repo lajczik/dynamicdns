@@ -5,15 +5,10 @@ plugins {
 
 dependencies {
     compileOnly(project(":shared"))
-    compileOnly(files("${rootProject.rootDir}/libs/velocity.jar"))
-    annotationProcessor(files("${rootProject.rootDir}/libs/velocity.jar"))
+    compileOnly("com.velocitypowered:velocity-api:3.5.0-SNAPSHOT")
+    annotationProcessor("com.velocitypowered:velocity-api:3.5.0-SNAPSHOT")
 
     implementation("org.bstats:bstats-velocity:3.2.1")
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 tasks {

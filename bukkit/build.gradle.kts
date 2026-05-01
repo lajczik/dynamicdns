@@ -10,11 +10,6 @@ dependencies {
     implementation("org.bstats:bstats-bukkit:3.2.1")
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
 tasks {
     shadowJar {
         minimize()

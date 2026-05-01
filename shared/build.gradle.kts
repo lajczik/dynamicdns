@@ -13,11 +13,6 @@ dependencies {
     //compileOnly("io.netty:netty-all:4.2.12.Final")
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
 tasks {
     shadowJar {
         minimize()

@@ -5,14 +5,9 @@ plugins {
 
 dependencies {
     compileOnly(project(":shared"))
-    compileOnly(files("${rootProject.rootDir}/libs/bungeecord.jar"))
+    compileOnly("net.md-5:bungeecord-api:1.21-R0.4")
 
     implementation("org.bstats:bstats-bungeecord:3.2.1")
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 tasks {
