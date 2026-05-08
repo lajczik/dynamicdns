@@ -42,7 +42,6 @@ public class BungeeMain extends Plugin {
                     LoaderSettings.builder().setCreateFileIfAbsent(true).setAutoUpdate(true).build(),
                     DumperSettings.DEFAULT
             );
-            this.config.save();
 
             this.reload();
         } catch (IOException e) {

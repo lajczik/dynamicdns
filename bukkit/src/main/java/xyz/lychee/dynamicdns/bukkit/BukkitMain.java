@@ -41,7 +41,6 @@ public class BukkitMain extends JavaPlugin {
                     LoaderSettings.builder().setCreateFileIfAbsent(true).setAutoUpdate(true).build(),
                     DumperSettings.DEFAULT
             );
-            this.config.save();
 
             this.reload();
         } catch (Exception e) {
