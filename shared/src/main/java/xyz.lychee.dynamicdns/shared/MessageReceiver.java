@@ -80,8 +80,10 @@ public abstract class MessageReceiver {
                 this.logger.info("Started listening " + address + " for ip changes!");
 
                 while (true) {
+                    String inetAddress = "unknown";
                     try (Socket clientSocket = serverSocket.accept()) {
                         clientSocket.setSoTimeout(5000);
+                        inetAddress = clientSocket.getInetAddress().getHostAddress();
 
                         byte[] decrypted = this.cipher.doFinal(this.readAllBytes(clientSocket.getInputStream()));
                         String message = new String(decrypted, StandardCharsets.UTF_8);
@@ -98,14 +100,14 @@ public abstract class MessageReceiver {
                             this.updateServers();
                             this.saveServers();
                         } else {
-                            this.logger.warning("Invalid message format: " + message);
+                            this.logger.warning("Invalid message format from "+inetAddress+": " + message);
                         }
                     } catch (Exception ex) {
-                        this.logger.warning("An error occurred while reading the message: " + ex.getMessage());
+                        this.logger.warning("An error occurred while reading the message from "+inetAddress+": " + ex.getMessage());
                     }
                 }
             } catch (IOException ex) {
-                this.logger.log(Level.SEVERE, "Failed to start UDP server", ex);
+                this.logger.log(Level.SEVERE, "Failed to start TCP server", ex);
             }
         });
 
