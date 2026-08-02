@@ -1,10 +1,10 @@
 plugins {
-    id("java")
-    id("com.gradleup.shadow") version "9.4.1"
+    id("org.jetbrains.kotlin.jvm") version "2.4.20-Beta2"
+    id("com.gradleup.shadow") version "9.6.1"
 }
 
 group = "xyz.lychee.dynamicdns"
-version = "1.2"
+version = "1.3"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -12,31 +12,28 @@ java {
 }
 
 dependencies {
-    implementation(project(":shared"))
-    implementation(project(":bukkit"))
-    implementation(project(":bungee"))
-    implementation(project(":velocity"))
+    implementation(project(":shared", "shadow"))
+    implementation(project(":bukkit", "shadow"))
+    implementation(project(":bungee", "shadow"))
+    implementation(project(":velocity", "shadow"))
 }
 
 tasks {
-    compileJava {
-        options.encoding = "UTF-8"
-    }
-
     shadowJar {
         archiveBaseName.set("DynamicDNS")
         archiveClassifier.set("")
 
         relocate("dev.dejvokep.boostedyaml", "xyz.lychee.dynamicdns.libs.yaml")
         relocate("org.bstats", "xyz.lychee.dynamicdns.libs.metrics")
-        relocate("com.github.alexdlaird.ngrok", "xyz.lychee.dynamicdns.libs.ngrok")
+        relocate("com.github.alexdlaird", "xyz.lychee.dynamicdns.libs.ngrok")
+        relocate("com.electronwill.nightconfig.core", "xyz.lychee.dynamicdns.libs.toml")
     }
 }
 
 allprojects {
-    group = "xyz.lychee";
+    group = "xyz.lychee"
 
-    apply(plugin = "java")
+    apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "com.gradleup.shadow")
 
     repositories {
@@ -49,10 +46,9 @@ allprojects {
 
     dependencies {
         implementation("dev.dejvokep:boosted-yaml:1.3.7")
+        implementation(kotlin("stdlib"))
 
         compileOnly("org.jetbrains:annotations:26.1.0")
-        compileOnly("org.projectlombok:lombok:1.18.44")
-        annotationProcessor("org.projectlombok:lombok:1.18.44")
     }
 
     java {
@@ -64,8 +60,10 @@ allprojects {
     }
 
     tasks {
-        compileJava {
-            options.encoding = "UTF-8"
+        compileKotlin {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+            }
         }
     }
 

@@ -4,8 +4,9 @@
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
 
-# IntelliJ IDEA
+# IDEs
 .idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
@@ -13,6 +14,9 @@
 # Java
 *.class
 hs_err_pid*
+*.kotlin_build
+*.kotlin_module
+.kotlin/
 
 # OS
 .DS_Store
