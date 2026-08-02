@@ -130,14 +130,12 @@ class VelocityMain @Inject constructor(
             if (!tomlFile.exists()) return
 
             try {
-                // Załaduj plik z zachowaniem komentarzy i kolejności
                 val config = CommentedFileConfig.builder(tomlFile)
                     .preserveInsertionOrder()
                     .sync()
                     .build()
                 config.load()
 
-                // Upewnij się, że sekcja [servers] istnieje
                 var serversSection = config.get<Config>("servers")
                 if (serversSection == null) {
                     serversSection = config.createSubConfig()
