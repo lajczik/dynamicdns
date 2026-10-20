@@ -1,15 +1,17 @@
 plugins {
     id("java")
     id("com.gradleup.shadow")
+    kotlin("kapt")
 }
 
 dependencies {
     compileOnly(project(":shared"))
-    compileOnly("com.velocitypowered:velocity-api:3.5.0-SNAPSHOT")
-    annotationProcessor("com.velocitypowered:velocity-api:3.5.0-SNAPSHOT")
+    compileOnly("com.velocitypowered:velocity-api:4.2.1-SNAPSHOT")
+    kapt("com.velocitypowered:velocity-api:4.2.1-SNAPSHOT")
 
     implementation("org.bstats:bstats-velocity:3.2.1")
     implementation("com.electronwill.night-config:toml:3.9.0")
+    testImplementation(kotlin("test"))
 }
 
 tasks {
@@ -24,4 +26,7 @@ tasks {
 
         outputs.upToDateWhen { false }
     }
+}
+repositories {
+    mavenCentral()
 }
