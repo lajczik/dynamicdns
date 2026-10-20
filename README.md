@@ -24,8 +24,8 @@ No separate port forward, custom daemons, or DNS propagation delays are required
 | Platform | Type | Minimum Version |
 | :--- | :--- | :--- |
 | **Velocity** | Proxy | 3.x / 4.x |
-| **BungeeCord / Waterfall** | Proxy | 1.8.8 – 1.21+ |
-| **Paper / Purpur / Spigot / Folia** | Subserver | 1.8.8 – 1.21+ |
+| **BungeeCord / Waterfall** | Proxy | 1.8.8 – 26.4 |
+| **Paper / Purpur / Spigot / Folia** | Subserver | 1.8.8 – 26.4 |
 | **Sponge** | Subserver | SpongeAPI 8+ (Minecraft 1.16.5+) |
 
 ---
