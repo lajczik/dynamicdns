@@ -4,7 +4,7 @@
 
 **DynamicDNS** is a lightweight, cross-platform Minecraft plugin and proxy extension that keeps your subservers connected and reachable even when hosted on dynamic IP addresses (such as home servers or VPS nodes without static IPs).
 
-No separate port forward, custom daemons, or DNS propagation delays are required — address changes are synchronized in real-time directly through Minecraft's native networking layer.
+No separate port forward, custom daemons or DNS propagation delays are required — address changes are synchronized in real-time directly through Minecraft's native networking layer.
 
 ---
 
@@ -34,7 +34,7 @@ No separate port forward, custom daemons, or DNS propagation delays are required
 
 ```
 +-------------------------------------------------------------------+
-|                Subserver (Bukkit /Paper / Sponge)                 |
+|               Subserver (Spigot / Paper / Sponge)                 |
 |                                                                   |
 |   1. Periodically sends handshake ping:                           |
 |      virtualHost = "sync.<token>.<server_name>.<port>"            |
@@ -72,7 +72,7 @@ No separate port forward, custom daemons, or DNS propagation delays are required
    ```
 4. Copy the secret `token` for use on your subservers.
 
-### 2. Subserver Setup (Paper, Spigot, or Sponge)
+### 2. Subserver Setup (Paper, Spigot or Sponge)
 1. Drop `DynamicDNS.jar` into your subserver's `plugins/` (or `mods/` on Sponge) directory.
 2. Start or restart the server to generate `config.yml`.
 3. Configure `plugins/DynamicDNS/config.yml`:
@@ -149,7 +149,7 @@ cd dynamicdns
 ```
 
 The compiled universal JAR will be located at:
-`build/libs/DynamicDNS-2.0.jar`
+`build/libs/DynamicDNS-2.X.jar`
 
 ---
 
