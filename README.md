@@ -34,7 +34,7 @@ No separate port forward, custom daemons, or DNS propagation delays are required
 
 ```
 +-------------------------------------------------------------------+
-|                        Subserver (Paper / Sponge)                 |
+|                Subserver (Bukkit /Paper / Sponge)                 |
 |                                                                   |
 |   1. Periodically sends handshake ping:                           |
 |      virtualHost = "sync.<token>.<server_name>.<port>"            |
@@ -43,7 +43,7 @@ No separate port forward, custom daemons, or DNS propagation delays are required
                (Standard Minecraft Port, e.g. 25565)
                                   v
 +-------------------------------------------------------------------+
-|                     Proxy (Velocity / BungeeCord)                 |
+|                  Proxy (Velocity / BungeeCord)                    |
 |                                                                   |
 |   2. Intercepts incoming handshake/ping connection                |
 |   3. Validates secret token                                       |
