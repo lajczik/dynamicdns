@@ -17,20 +17,30 @@ import java.util.logging.Logger
 class NgrokHook(
     val logger: Logger,
     val address: InetSocketAddress,
-    val config: YamlDocument
+    var ngrokConfig: NgrokConfig
 ) {
     var ngrokClient: NgrokClient? = null
         private set
     var tunnel: Tunnel? = null
         private set
 
+    constructor(logger: Logger, address: InetSocketAddress, config: YamlDocument) : this(
+        logger,
+        address,
+        NgrokConfig(
+            config.getBoolean("ngrok.enabled", false),
+            config.getString("ngrok.token", ""),
+            config.getString("ngrok.region", "US")
+        )
+    )
+
     @Throws(IllegalArgumentException::class)
     fun load(): URI {
-        val regionString = this.config.getString("ngrok.region", "US").uppercase(Locale.getDefault())
+        val regionString = this.ngrokConfig.region.uppercase(Locale.getDefault())
         val javaNgrokConfig = JavaNgrokConfig.Builder()
             .withNgrokVersion(NgrokVersion.V3)
             .withRegion(Region.valueOf(regionString))
-            .withAuthToken(this.config.getString("ngrok.token"))
+            .withAuthToken(this.ngrokConfig.token)
             .build()
 
         this.ngrokClient = NgrokClient.Builder()

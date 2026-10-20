@@ -12,7 +12,7 @@ import java.util.logging.Logger
 
 class DynuHook(
     val logger: Logger,
-    val config: YamlDocument
+    var dynuConfig: DynuConfig
 ) {
     var port: Int = 0
     var domain: String? = null
@@ -22,14 +22,24 @@ class DynuHook(
         private const val JSON_CONTENT = "application/json"
     }
 
+    constructor(logger: Logger, config: YamlDocument) : this(
+        logger,
+        DynuConfig(
+            config.getBoolean("dynu.enabled", false),
+            config.getString("dynu.domain", ""),
+            config.getString("dynu.client", ""),
+            config.getString("dynu.secret", "")
+        )
+    )
+
     fun load(address: InetSocketAddress) {
-        this.domain = this.config.getString("dynu.domain")
+        this.domain = this.dynuConfig.domain
         this.update(address)
     }
 
     fun update(address: InetSocketAddress): Boolean {
         return try {
-            val credentials = "${this.config.getString("dynu.client")}:${this.config.getString("dynu.secret")}"
+            val credentials = "${this.dynuConfig.client}:${this.dynuConfig.secret}"
             val token = getToken(credentials)
 
             if (token == null) {
@@ -131,50 +141,6 @@ class DynuHook(
         }
     }
 
-    private fun updateIP(token: String, domainId: String, ip: String): Boolean {
-        var conn: HttpURLConnection? = null
-        return try {
-            val url = URI.create("$API_BASE/dns/$domainId").toURL()
-            conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Accept", JSON_CONTENT)
-            conn.setRequestProperty("Authorization", "Bearer $token")
-            conn.setRequestProperty("Content-Type", JSON_CONTENT)
-            conn.doOutput = true
-
-            val jsonPayload = """
-                {
-                  "name": "$domain",
-                  "group": "default",
-                  "ipv4Address": "$ip",
-                  "ttl": 120,
-                  "ipv4": true,
-                  "ipv6": false,
-                  "ipv4WildcardAlias": false,
-                  "ipv6WildcardAlias": false,
-                  "allowZoneTransfer": false,
-                  "dnssec": false
-                }
-            """.trimIndent()
-
-            conn.outputStream.use { os ->
-                os.write(jsonPayload.toByteArray(StandardCharsets.UTF_8))
-            }
-
-            if (conn.responseCode == 200) {
-                logger.info("Successfully updated IP address")
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            logger.severe("Failed to update IP: ${e.message}")
-            false
-        } finally {
-            conn?.disconnect()
-        }
-    }
-
     private fun updateDNS(token: String, domainId: String, dnsRecordId: String): Boolean {
         var conn: HttpURLConnection? = null
         return try {
@@ -182,31 +148,69 @@ class DynuHook(
             conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Accept", JSON_CONTENT)
-            conn.setRequestProperty("Authorization", "Bearer $token")
             conn.setRequestProperty("Content-Type", JSON_CONTENT)
+            conn.setRequestProperty("Authorization", "Bearer $token")
             conn.doOutput = true
 
-            val jsonPayload = """
+            val payload = """
                 {
-                  "nodeName": "_minecraft._tcp",
-                  "recordType": "SRV",
-                  "ttl": 120,
-                  "state": true,
-                  "group": "",
-                  "host": "$domain",
-                  "priority": 10,
-                  "weight": 5,
-                  "port": $port
+                    "nodeName": "",
+                    "recordType": "SRV",
+                    "ttl": 300,
+                    "state": true,
+                    "group": "",
+                    "host": "$domain",
+                    "priority": 0,
+                    "weight": 5,
+                    "port": $port
                 }
             """.trimIndent()
 
             conn.outputStream.use { os ->
-                os.write(jsonPayload.toByteArray(StandardCharsets.UTF_8))
+                os.write(payload.toByteArray(StandardCharsets.UTF_8))
+                os.flush()
             }
 
-            conn.responseCode == 200
+            conn.responseCode == HttpURLConnection.HTTP_OK
         } catch (e: Exception) {
             logger.severe("Failed to update DNS: ${e.message}")
+            false
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    private fun updateIP(token: String, domainId: String, ipAddress: String): Boolean {
+        var conn: HttpURLConnection? = null
+        return try {
+            val url = URI.create("$API_BASE/dns/$domainId").toURL()
+            conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Accept", JSON_CONTENT)
+            conn.setRequestProperty("Content-Type", JSON_CONTENT)
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.doOutput = true
+
+            val payload = """
+                {
+                    "name": "$domain",
+                    "group": "",
+                    "ipv4Address": "$ipAddress",
+                    "ttl": 300,
+                    "ipv4": true,
+                    "ipv6": false,
+                    "ipv6Address": null
+                }
+            """.trimIndent()
+
+            conn.outputStream.use { os ->
+                os.write(payload.toByteArray(StandardCharsets.UTF_8))
+                os.flush()
+            }
+
+            conn.responseCode == HttpURLConnection.HTTP_OK
+        } catch (e: Exception) {
+            logger.severe("Failed to update IP: ${e.message}")
             false
         } finally {
             conn?.disconnect()
