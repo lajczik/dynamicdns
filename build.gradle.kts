@@ -1,10 +1,10 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.4.20-Beta2"
+    id("org.jetbrains.kotlin.jvm") version "2.5.0-Beta1"
     id("com.gradleup.shadow") version "9.6.1"
 }
 
 group = "xyz.lychee.dynamicdns"
-version = "1.3"
+version = "2.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -14,6 +14,7 @@ java {
 dependencies {
     implementation(project(":shared", "shadow"))
     implementation(project(":bukkit", "shadow"))
+    implementation(project(":sponge", "shadow"))
     implementation(project(":bungee", "shadow"))
     implementation(project(":velocity", "shadow"))
 }
@@ -26,7 +27,7 @@ tasks {
         relocate("dev.dejvokep.boostedyaml", "xyz.lychee.dynamicdns.libs.yaml")
         relocate("org.bstats", "xyz.lychee.dynamicdns.libs.metrics")
         relocate("com.github.alexdlaird", "xyz.lychee.dynamicdns.libs.ngrok")
-        relocate("com.electronwill.nightconfig.core", "xyz.lychee.dynamicdns.libs.toml")
+        relocate("com.electronwill.nightconfig", "xyz.lychee.dynamicdns.libs.toml")
     }
 }
 
@@ -40,6 +41,7 @@ allprojects {
         maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://oss.sonatype.org/content/groups/public/")
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
+        maven("https://repo.spongepowered.org/repository/maven-public/")
         mavenLocal()
         mavenCentral()
     }
@@ -49,6 +51,8 @@ allprojects {
         implementation(kotlin("stdlib"))
 
         compileOnly("org.jetbrains:annotations:26.1.0")
+        testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 
     java {
@@ -60,10 +64,14 @@ allprojects {
     }
 
     tasks {
-        compileKotlin {
+        withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
             compilerOptions {
                 jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
             }
+        }
+
+        withType<Test>().configureEach {
+            useJUnitPlatform()
         }
     }
 
