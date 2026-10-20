@@ -5,6 +5,7 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import java.util.regex.Pattern
 
 class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCompleter {
@@ -52,7 +53,21 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
             return true
         }
 
-        sender.sendMessage(color("&e[DynamicDNS] Usage: /$label reload"))
+        if (args.isNotEmpty() && args[0].equals("update", ignoreCase = true)) {
+            sender.sendMessage(color("&e[DynamicDNS] Checking for updates..."))
+            val updater = plugin.updater ?: ModrinthUpdater(plugin.logger, plugin.description.version)
+            updater.checkForUpdatesAsync(debug = true, force = true) { result ->
+                if (result.isUpdateAvailable) {
+                    sender.sendMessage(color("&a[DynamicDNS] A new version is available: &fv${result.latestVersion} &a(Current: &fv${result.currentVersion}&a)!"))
+                    sender.sendMessage(color("&a[DynamicDNS] Download it at: &f${result.projectUrl}"))
+                } else {
+                    sender.sendMessage(color("&a[DynamicDNS] You are running the latest version: &fv${result.currentVersion}&a."))
+                }
+            }
+            return true
+        }
+
+        sender.sendMessage(color("&e[DynamicDNS] Usage: /$label <reload|update>"))
         return true
     }
 
@@ -63,9 +78,7 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
         args: Array<out String>
     ): List<String> {
         if (args.size == 1 && (sender.hasPermission("dynamicdns.reload") || sender.hasPermission("dynamicdns.admin"))) {
-            if ("reload".startsWith(args[0].lowercase())) {
-                return listOf("reload")
-            }
+            return listOf("reload", "update").filter { it.startsWith(args[0].lowercase()) }
         }
         return emptyList()
     }

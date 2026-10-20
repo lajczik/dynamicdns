@@ -6,6 +6,7 @@ import net.md_5.bungee.api.chat.BaseComponent
 import net.md_5.bungee.api.chat.TextComponent
 import net.md_5.bungee.api.plugin.Command
 import net.md_5.bungee.api.plugin.TabExecutor
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import java.util.regex.Pattern
 
 class DynamicDnsCommand(private val plugin: BungeeMain) :
@@ -50,14 +51,26 @@ class DynamicDnsCommand(private val plugin: BungeeMain) :
             return
         }
 
-        sender.sendMessage(*color("&e[DynamicDNS] Usage: /dynamicdns reload"))
+        if (args.isNotEmpty() && args[0].equals("update", ignoreCase = true)) {
+            sender.sendMessage(*color("&e[DynamicDNS] Checking for updates..."))
+            val updater = plugin.updater ?: ModrinthUpdater(plugin.logger, plugin.description.version)
+            updater.checkForUpdatesAsync(debug = true, force = true) { result ->
+                if (result.isUpdateAvailable) {
+                    sender.sendMessage(*color("&a[DynamicDNS] A new version is available: &fv${result.latestVersion} &a(Current: &fv${result.currentVersion}&a)!"))
+                    sender.sendMessage(*color("&a[DynamicDNS] Download it at: &f${result.projectUrl}"))
+                } else {
+                    sender.sendMessage(*color("&a[DynamicDNS] You are running the latest version: &fv${result.currentVersion}&a."))
+                }
+            }
+            return
+        }
+
+        sender.sendMessage(*color("&e[DynamicDNS] Usage: /dynamicdns <reload|update>"))
     }
 
     override fun onTabComplete(sender: CommandSender, args: Array<out String>): Iterable<String> {
         if (args.size == 1 && (sender.hasPermission("dynamicdns.reload") || sender.hasPermission("dynamicdns.admin"))) {
-            if ("reload".startsWith(args[0].lowercase())) {
-                return listOf("reload")
-            }
+            return listOf("reload", "update").filter { it.startsWith(args[0].lowercase()) }
         }
         return emptyList()
     }

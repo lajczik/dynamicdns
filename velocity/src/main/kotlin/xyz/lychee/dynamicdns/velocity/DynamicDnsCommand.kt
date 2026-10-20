@@ -3,6 +3,7 @@ package xyz.lychee.dynamicdns.velocity
 import com.velocitypowered.api.command.SimpleCommand
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 
 class DynamicDnsCommand(private val plugin: VelocityMain) : SimpleCommand {
 
@@ -38,16 +39,31 @@ class DynamicDnsCommand(private val plugin: VelocityMain) : SimpleCommand {
             return
         }
 
-        source.sendMessage(color("&e[DynamicDNS] Usage: /dynamicdns reload"))
+        if (args.isNotEmpty() && args[0].equals("update", ignoreCase = true)) {
+            source.sendMessage(color("&e[DynamicDNS] Checking for updates..."))
+            val version = plugin.proxy.pluginManager.fromInstance(plugin)
+                .flatMap { it.description.version }
+                .orElse(ModrinthUpdater.CURRENT_VERSION)
+            val updater = plugin.updater ?: ModrinthUpdater(plugin.logger, version)
+            updater.checkForUpdatesAsync(debug = true, force = true) { result ->
+                if (result.isUpdateAvailable) {
+                    source.sendMessage(color("&a[DynamicDNS] A new version is available: &fv${result.latestVersion} &a(Current: &fv${result.currentVersion}&a)!"))
+                    source.sendMessage(color("&a[DynamicDNS] Download it at: &f${result.projectUrl}"))
+                } else {
+                    source.sendMessage(color("&a[DynamicDNS] You are running the latest version: &fv${result.currentVersion}&a."))
+                }
+            }
+            return
+        }
+
+        source.sendMessage(color("&e[DynamicDNS] Usage: /dynamicdns <reload|update>"))
     }
 
     override fun suggest(invocation: SimpleCommand.Invocation): List<String> {
         val args = invocation.arguments()
         if (args.size <= 1 && hasPermission(invocation)) {
             val prefix = if (args.isEmpty()) "" else args[0].lowercase()
-            if ("reload".startsWith(prefix)) {
-                return listOf("reload")
-            }
+            return listOf("reload", "update").filter { it.startsWith(prefix) }
         }
         return emptyList()
     }
