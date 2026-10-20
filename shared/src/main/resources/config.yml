@@ -1,3 +1,6 @@
+# Global debug logging – logs every sync ping sent and heartbeat received
+debug: false
+
 # Configuration for ngrok – creates secure tunnels to local servers
 ngrok:
   # Set to true to enable ngrok tunneling
@@ -18,24 +21,15 @@ dynu:
   # Dynu API secret or password
   secret: ''
 
-# -------> PROXY ONLY! <-------
-# Socket server – listens for connections from backend servers and updates their IP addresses in the proxy
-socket_server:
-  # Set to true to run the socket server (on the proxy side)
+# Subserver address synchronization via Minecraft Handshake ping (Velocity / BungeeCord / Paper / Spigot / Sponge)
+server_sync:
+  # Set to true to enable synchronization (on proxy: accepts sync pings; on subserver: sends sync pings)
   enabled: false
-  # IP address and port on which the server listens for incoming connections
-  bind: "0.0.0.0:39123"
-
-# -------> BUKKIT ONLY! <-------
-# Socket client – sends a connection request to the proxy so the proxy can update this server's IP address
-socket_client:
-  # Set to true to enable the client (on the Bukkit server side)
-  enabled: false
-  # Unique identifier for this server (used by the proxy to distinguish servers)
+  # Shared secret token for authenticating subservers with the proxy
+  token: ""
+  # Subserver unique identifier on the proxy (Subserver only, e.g. "survival")
   name: "survival"
-  # Shared secret for authenticating with the proxy
-  token: "token"
-  # Public static IP address and port of the socket server (the proxy)
-  target_address: "123.123.123.123:39123"
-  # Interval in seconds between client update requests sent to the proxy
+  # Target proxy address and port (Subserver only, e.g. "123.123.123.123:25565")
+  target_address: "123.123.123.123:25565"
+  # Interval in seconds between sync pings sent to proxy (Subserver only)
   interval: 30

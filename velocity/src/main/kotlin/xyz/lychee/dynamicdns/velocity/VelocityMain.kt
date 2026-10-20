@@ -2,9 +2,14 @@ package xyz.lychee.dynamicdns.velocity
 
 import com.electronwill.nightconfig.core.Config
 import com.electronwill.nightconfig.core.file.CommentedFileConfig
+import com.electronwill.nightconfig.toml.TomlFormat
 import com.google.inject.Inject
+import com.velocitypowered.api.event.PostOrder
+import com.velocitypowered.api.event.ResultedEvent
 import com.velocitypowered.api.event.Subscribe
+import com.velocitypowered.api.event.connection.ConnectionHandshakeEvent
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
+import com.velocitypowered.api.event.proxy.ProxyPingEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
@@ -15,14 +20,14 @@ import dev.dejvokep.boostedyaml.settings.general.GeneralSettings
 import dev.dejvokep.boostedyaml.settings.loader.LoaderSettings
 import org.bstats.velocity.Metrics
 import xyz.lychee.dynamicdns.shared.AddressUtil
+import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
-import xyz.lychee.dynamicdns.shared.MessageReceiver
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.SocketAddress
 import java.nio.file.Path
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
@@ -32,7 +37,6 @@ class VelocityMain @Inject constructor(
     @DataDirectory dataDirectory: Path,
     val metricsFactory: Metrics.Factory
 ) {
-    val servers: MutableMap<String, InetSocketAddress> = ConcurrentHashMap()
     val configDoc: YamlDocument = YamlDocument.create(
         dataDirectory.resolve("config.yml").toFile(),
         this.javaClass.classLoader.getResourceAsStream("config.yml"),
@@ -40,138 +44,218 @@ class VelocityMain @Inject constructor(
         LoaderSettings.builder().setCreateFileIfAbsent(true).build(),
         DumperSettings.DEFAULT
     )
-    val receiver: MessageReceiver = VelocityMessageReceiver(logger, configDoc)
-    val ngrok: NgrokHook = NgrokHook(logger, proxy.boundAddress, configDoc)
-    val dynu: DynuHook = DynuHook(logger, configDoc)
+    val config: DynamicDnsConfig = DynamicDnsConfig(configDoc, isProxy = true)
+    val servers: MutableMap<String, InetSocketAddress>
+        get() = config.servers
+
+    val ngrok: NgrokHook = NgrokHook(logger, proxy.boundAddress, config.ngrok)
+    val dynu: DynuHook = DynuHook(logger, config.dynu)
     var metrics: Metrics? = null
 
     @Subscribe
     fun onInit(event: ProxyInitializeEvent) {
         this.metrics = this.metricsFactory.make(this, 27000)
+        val commandManager = this.proxy.commandManager
+        val meta = commandManager.metaBuilder("dynamicdns")
+            .aliases("ddns")
+            .plugin(this)
+            .build()
+        commandManager.register(meta, DynamicDnsCommand(this))
         this.reload()
     }
 
     @Throws(IOException::class)
     fun reload() {
-        this.configDoc.reload()
+        this.config.reload()
+        this.ngrok.ngrokConfig = this.config.ngrok
+        this.dynu.dynuConfig = this.config.dynu
 
-        val address = if (this.configDoc.getBoolean("ngrok.enabled", false)) {
+        val address = if (this.config.ngrok.enabled) {
             AddressUtil.parseAddressFromUri(this.ngrok.load())
         } else {
             InetSocketAddress(AddressUtil.checkPublicIp(), proxy.boundAddress.port)
         }
 
-        if (this.configDoc.getBoolean("dynu.enabled", false)) {
+        if (this.config.dynu.enabled) {
             this.dynu.load(address)
         }
 
-        this.loadSocketServers()
+        this.loadServers()
     }
 
-    @Throws(IOException::class)
-    fun loadSocketServers() {
-        var token = this.configDoc.getString("socket_server.token")
+    fun loadServers() {
+        this.config.ensureProxySyncToken()
 
-        if (token == null) {
-            token = UUID.randomUUID().toString()
-            this.configDoc.set("socket_server.token", token)
-            this.configDoc.save()
+        this.servers.forEach { (name, address) ->
+            val info = proxy.getServer(name).map { it.serverInfo }.orElse(null)
+            if (info == null || info.address != address) {
+                if (info != null) {
+                    proxy.unregisterServer(info)
+                }
+                proxy.registerServer(ServerInfo(name, address))
+                this.logger.info("Loaded server $name with address $address!")
+            }
         }
+    }
 
-        if (!this.configDoc.getBoolean("socket_server.enabled", false)) {
+    @Subscribe(order = PostOrder.FIRST, priority = Short.MIN_VALUE)
+    fun onProxyPing(event: ProxyPingEvent) {
+        val virtualHost = event.connection.virtualHost.map { it.hostString }.orElseGet {
+            try {
+                event.connection.rawVirtualHost.orElse(null)
+            } catch (e: Throwable) {
+                null
+            }
+        } ?: return
+
+        if (!virtualHost.startsWith("sync.")) return
+
+        // Immediately cancel the ping event and close the connection without Netty reflection
+        event.result = ResultedEvent.GenericResult.denied()
+        event.ping = null
+
+        handleSyncPayload(virtualHost, event.connection.remoteAddress)
+    }
+
+    @Subscribe(order = PostOrder.FIRST, priority = Short.MIN_VALUE)
+    fun onHandshake(event: ConnectionHandshakeEvent) {
+        val virtualHost = event.connection.virtualHost.map { it.hostString }.orElseGet {
+            try {
+                event.connection.rawVirtualHost.orElse(null)
+            } catch (e: Throwable) {
+                null
+            }
+        } ?: return
+
+        if (!virtualHost.startsWith("sync.")) return
+
+        handleSyncPayload(virtualHost, event.connection.remoteAddress)
+    }
+
+    private fun handleSyncPayload(virtualHost: String, remoteAddress: SocketAddress) {
+        if (!this.config.serverSync.enabled) {
             return
         }
 
-        val addressStr = this.configDoc.getString("socket_server.bind")
-        if (addressStr == null) {
-            this.logger.warning("Value socket_server.bind has not been set!")
+        val cleanHost = virtualHost.trimEnd('.')
+        val parts = cleanHost.split(".", limit = 4)
+        if (parts.size < 4 || parts[0] != "sync") {
+            this.logger.warning("Invalid sync payload structure from $remoteAddress: $virtualHost")
             return
         }
 
-        val split = addressStr.split(":")
-        if (split.size != 2) {
-            this.logger.warning("Invalid socket_server bind format. Expected format: host:port")
+        val receivedToken = parts[1]
+        val serverName = parts[2]
+        val targetPortOrIp = parts[3]
+
+        val expectedToken = this.config.serverSync.token
+        if (expectedToken.isBlank() || receivedToken != expectedToken) {
+            this.logger.warning("Rejected sync update from $remoteAddress: invalid token!")
             return
         }
 
-        this.receiver.loadServers(token)
-        this.receiver.updateServers()
-        this.receiver.start(InetSocketAddress(split[0], split[1].toInt()))
+        val targetAddress: InetSocketAddress = if (targetPortOrIp.contains(":")) {
+            val sub = targetPortOrIp.split(":", limit = 2)
+            val port = sub[1].toIntOrNull()
+            if (port == null) {
+                this.logger.warning("Invalid port in sync address: $targetPortOrIp")
+                return
+            }
+            InetSocketAddress(sub[0], port)
+        } else {
+            val port = targetPortOrIp.toIntOrNull()
+            if (port != null) {
+                val remoteIp = (remoteAddress as? InetSocketAddress)?.address?.hostAddress
+                    ?: (remoteAddress as? InetSocketAddress)?.hostString
+                    ?: "127.0.0.1"
+                InetSocketAddress(remoteIp, port)
+            } else {
+                InetSocketAddress(targetPortOrIp, 25565)
+            }
+        }
+
+        val existingInfo = proxy.getServer(serverName).map { it.serverInfo }.orElse(null)
+        if (existingInfo != null && existingInfo.address == targetAddress && servers[serverName] == targetAddress) {
+            if (this.config.debug) {
+                this.logger.info("Sync heartbeat received for $serverName ($targetAddress) - address unchanged")
+            }
+            return
+        }
+
+        if (existingInfo != null) {
+            proxy.unregisterServer(existingInfo)
+        }
+
+        val newInfo = ServerInfo(serverName, targetAddress)
+        proxy.registerServer(newInfo)
+        servers[serverName] = targetAddress
+        this.logger.info("Synchronized server $serverName with address $targetAddress (from $remoteAddress)")
+
+        saveServers()
+    }
+
+    @Synchronized
+    fun saveServers() {
+        try {
+            this.config.saveServers()
+        } catch (e: Exception) {
+            this.logger.warning("Failed to save servers to config: ${e.message}")
+        }
+        this.updateVelocityToml()
+    }
+
+    private fun updateVelocityToml() {
+        val tomlFile = File("velocity.toml")
+        if (!tomlFile.exists()) return
+
+        try {
+            val config = CommentedFileConfig.builder(tomlFile, TomlFormat.instance())
+                .preserveInsertionOrder()
+                .sync()
+                .build()
+            config.load()
+
+            var serversSection = config.get<Config>("servers")
+            if (serversSection == null) {
+                serversSection = config.createSubConfig()
+                config.set<Config>("servers", serversSection)
+            }
+
+            var hasChanges = false
+
+            this.servers.forEach { (name, addr) ->
+                val addressStr = "${addr.hostString}:${addr.port}"
+                val existing = serversSection.get<Any>(name)
+
+                if (existing is Config) {
+                    val currentAddress = existing.get<String>("address")
+                    if (currentAddress != addressStr) {
+                        serversSection.set<Config>("$name.address", addressStr)
+                        hasChanges = true
+                    }
+                } else {
+                    val currentValue = existing as? String
+                    if (currentValue != addressStr) {
+                        serversSection.set<String>(name, addressStr)
+                        hasChanges = true
+                    }
+                }
+            }
+
+            if (hasChanges) {
+                config.save()
+                this.logger.info("Updated velocity.toml with new server addresses")
+            }
+
+            config.close()
+        } catch (e: Exception) {
+            this.logger.warning("Failed to update velocity.toml: ${e.message}")
+        }
     }
 
     @Subscribe
     fun onShutdown(event: ProxyShutdownEvent) {
         this.metrics?.shutdown()
         this.ngrok.unload()
-    }
-
-    inner class VelocityMessageReceiver(logger: Logger, config: YamlDocument) : MessageReceiver(logger, config) {
-        override fun updateServers() {
-            this.servers.forEach { (name, address) ->
-                val info = proxy.getServer(name).map { it.serverInfo }.orElse(null)
-                if (info == null || info.address != address) {
-                    if (info != null) {
-                        proxy.unregisterServer(info)
-                    }
-                    proxy.registerServer(ServerInfo(name, address))
-                    this.logger.info("Loaded server $name with address $address!")
-                }
-            }
-        }
-
-        @Throws(IOException::class)
-        override fun saveServers() {
-            super.saveServers()
-            this.updateVelocityToml()
-        }
-
-        private fun updateVelocityToml() {
-            val tomlFile = File("velocity.toml")
-            if (!tomlFile.exists()) return
-
-            try {
-                val config = CommentedFileConfig.builder(tomlFile)
-                    .preserveInsertionOrder()
-                    .sync()
-                    .build()
-                config.load()
-
-                var serversSection = config.get<Config>("servers")
-                if (serversSection == null) {
-                    serversSection = config.createSubConfig()
-                    config.set<Config>("servers", serversSection)
-                }
-
-                var hasChanges = false
-
-                this.servers.forEach { (name, addr) ->
-                    val addressStr = "${addr.hostString}:${addr.port}"
-                    val existing = serversSection.get<Any>(name)
-
-                    if (existing is Config) {
-                        val currentAddress = existing.get<String>("address")
-                        if (currentAddress != addressStr) {
-                            serversSection.set<Config>("$name.address", addressStr)
-                            hasChanges = true
-                        }
-                    } else {
-                        val currentValue = existing as? String
-                        if (currentValue != addressStr) {
-                            serversSection.set<String>(name, addressStr)
-                            hasChanges = true
-                        }
-                    }
-                }
-
-                if (hasChanges) {
-                    config.save()
-                    this.logger.info("Updated velocity.toml with new server addresses")
-                }
-
-                config.close()
-            } catch (e: Exception) {
-                this.logger.warning("Failed to update velocity.toml: ${e.message}")
-            }
-        }
     }
 }

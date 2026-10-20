@@ -9,19 +9,21 @@ import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
 import xyz.lychee.dynamicdns.shared.AddressUtil
+import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
-import xyz.lychee.dynamicdns.shared.MessageReceiver
+import xyz.lychee.dynamicdns.shared.MinecraftPacketUtil
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
-import java.net.Socket
-import java.nio.charset.StandardCharsets
-import javax.crypto.Cipher
 
 class BukkitMain : JavaPlugin() {
-    lateinit var configDoc: YamlDocument
+    lateinit var config: DynamicDnsConfig
         private set
+
+    val configDoc: YamlDocument
+        get() = config.yamlDocument
+
     var task: BukkitTask? = null
     var metrics: Metrics? = null
     var ngrok: NgrokHook? = null
@@ -38,86 +40,113 @@ class BukkitMain : JavaPlugin() {
         this.metrics = Metrics(this, 27000)
 
         try {
-            this.configDoc = YamlDocument.create(
+            val yamlDoc = YamlDocument.create(
                 File(this.dataFolder, "config.yml"),
                 this.getResource("config.yml"),
                 GeneralSettings.DEFAULT,
                 LoaderSettings.builder().setCreateFileIfAbsent(true).setAutoUpdate(true).build(),
                 DumperSettings.DEFAULT
             )
-
+            this.config = DynamicDnsConfig(yamlDoc, isProxy = false)
             this.reload()
         } catch (e: Exception) {
             throw RuntimeException(e)
+        }
+
+        val cmd = this.getCommand("dynamicdns")
+        if (cmd != null) {
+            val executor = DynamicDnsCommand(this)
+            cmd.setExecutor(executor)
+            cmd.tabCompleter = executor
         }
     }
 
     @Throws(Exception::class)
     fun reload() {
-        this.configDoc.reload()
+        this.config.reload()
 
-        val ngrokHook = NgrokHook(this.logger, InetSocketAddress(Bukkit.getIp(), Bukkit.getPort()), this.configDoc)
-        val dynuHook = DynuHook(this.logger, this.configDoc)
+        val bind = InetSocketAddress(Bukkit.getIp(), Bukkit.getPort())
+        val ngrokHook = NgrokHook(this.logger, bind, this.config.ngrok)
+        val dynuHook = DynuHook(this.logger, this.config.dynu)
         this.ngrok = ngrokHook
         this.dynu = dynuHook
 
-        val address = if (this.configDoc.getBoolean("ngrok.enabled", false)) {
+        val address = if (this.config.ngrok.enabled) {
             AddressUtil.parseAddressFromUri(ngrokHook.load())
         } else {
             InetSocketAddress(AddressUtil.checkPublicIp(), Bukkit.getPort())
         }
 
-        if (this.configDoc.getBoolean("dynu.enabled", false)) {
+        if (this.config.dynu.enabled) {
             dynuHook.load(address)
         }
 
-        this.loadSocketClient()
+        this.loadServerSync()
     }
 
     @Throws(Exception::class)
-    fun loadSocketClient() {
-        if (!this.configDoc.getBoolean("socket_client.enabled", false)) {
+    fun loadServerSync() {
+        this.task?.cancel()
+
+        val syncConfig = this.config.serverSync
+        if (!syncConfig.enabled) {
             return
         }
 
-        val token = this.configDoc.getString("socket_client.token")
-        if (token == null) {
-            this.logger.warning("Value socket_client.token has not been set!")
+        val token = syncConfig.token
+        if (token.isBlank()) {
+            this.logger.warning("Value server_sync.token has not been set!")
             return
         }
 
-        val addressStr = this.configDoc.getString("socket_client.target_address")
-        if (addressStr == null) {
-            this.logger.warning("Value socket_client.target_address has not been set!")
+        val name = syncConfig.name
+        if (name.isBlank()) {
+            this.logger.warning("Value server_sync.name has not been set!")
+            return
+        }
+
+        val addressStr = syncConfig.targetAddress
+        if (addressStr.isBlank()) {
+            this.logger.warning("Value server_sync.target_address has not been set!")
             return
         }
 
         val split = addressStr.split(":")
         if (split.size != 2) {
-            this.logger.warning("Invalid socket_client target address format. Expected format: host:port")
+            this.logger.warning("Invalid server_sync target address format. Expected format: host:port")
             return
         }
 
-        this.task?.cancel()
+        val targetHost = split[0]
+        val targetPort = split[1].toInt()
+        val interval = 20L * syncConfig.interval
 
-        val cipher = MessageReceiver.createCipher(token, Cipher.ENCRYPT_MODE)
-        val message = "${this.configDoc.getString("socket_client.name")}:${server.port}"
-        val encrypted = cipher.doFinal(message.toByteArray(StandardCharsets.UTF_8))
-
-        val socketAddress = InetSocketAddress(split[0], split[1].toInt())
-
-        val interval = 20L * this.configDoc.getInt("socket_client.interval", 30)
-        this.task = Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
+        this.task = Bukkit.getScheduler().runTaskTimerAsynchronously(this, {
             try {
-                Socket().use { socket ->
-                    socket.soTimeout = 5000
-                    socket.connect(socketAddress, 5000)
-                    socket.outputStream.write(encrypted)
+                val targetAddress = InetSocketAddress(targetHost, targetPort)
+                val portOrIp = if (this.config.ngrok.enabled && this.ngrok != null) {
+                    try {
+                        val ngrokAddr = AddressUtil.parseAddressFromUri(this.ngrok!!.load())
+                        "${ngrokAddr.hostString}:${ngrokAddr.port}"
+                    } catch (e: Exception) {
+                        "${server.port}"
+                    }
+                } else {
+                    "${server.port}"
+                }
+
+                val payload = "sync.$token.$name.$portOrIp"
+                MinecraftPacketUtil.sendSyncHandshake(targetAddress, payload, 5000)
+
+                if (this.config.debug) {
+                    this.logger.info("Sent sync ping to $targetAddress with payload: $payload")
                 }
             } catch (e: IOException) {
                 this.logger.warning("Failed to send update: ${e.message}")
+            } catch (t: Throwable) {
+                this.logger.warning("Unexpected error in sync task: ${t.message}")
             }
-        }, interval, interval)
+        }, 0L, interval)
     }
 
     override fun onDisable() {
