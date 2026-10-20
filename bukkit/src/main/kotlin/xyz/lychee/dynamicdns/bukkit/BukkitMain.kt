@@ -12,6 +12,7 @@ import xyz.lychee.dynamicdns.shared.AddressUtil
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
 import xyz.lychee.dynamicdns.shared.MinecraftPacketUtil
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
@@ -28,6 +29,7 @@ class BukkitMain : JavaPlugin() {
     var metrics: Metrics? = null
     var ngrok: NgrokHook? = null
     var dynu: DynuHook? = null
+    var updater: ModrinthUpdater? = null
 
     companion object {
         @JvmStatic
@@ -37,7 +39,7 @@ class BukkitMain : JavaPlugin() {
 
     override fun onEnable() {
         instance = this
-        this.metrics = Metrics(this, 27000)
+        this.metrics = Metrics(this, 27417)
 
         try {
             val yamlDoc = YamlDocument.create(
@@ -79,6 +81,12 @@ class BukkitMain : JavaPlugin() {
 
         if (this.config.dynu.enabled) {
             dynuHook.load(address)
+        }
+
+        if (this.config.checkUpdates) {
+            val updater = ModrinthUpdater(this.logger, this.description.version)
+            this.updater = updater
+            updater.checkForUpdatesAsync(this.config.debug)
         }
 
         this.loadServerSync()

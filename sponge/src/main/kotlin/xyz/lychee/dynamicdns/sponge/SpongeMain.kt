@@ -23,6 +23,7 @@ import xyz.lychee.dynamicdns.shared.AddressUtil
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
 import xyz.lychee.dynamicdns.shared.MinecraftPacketUtil
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
@@ -47,6 +48,7 @@ class SpongeMain @Inject constructor(
     var metrics: Metrics? = null
     var ngrok: NgrokHook? = null
     var dynu: DynuHook? = null
+    var updater: ModrinthUpdater? = null
 
     val julLogger: java.util.logging.Logger = object : java.util.logging.Logger("DynamicDNS", null) {
         override fun info(msg: String?) {
@@ -77,7 +79,7 @@ class SpongeMain @Inject constructor(
     @Listener
     fun onServerStart(event: StartedEngineEvent<Server>) {
         instance = this
-        this.metrics = this.metricsFactory.make(27000)
+        this.metrics = this.metricsFactory.make(34845)
 
         try {
             val configFile = File(configDir.toFile(), "config.yml")
@@ -119,6 +121,13 @@ class SpongeMain @Inject constructor(
 
         if (this.config.dynu.enabled) {
             dynuHook.load(address)
+        }
+
+        if (this.config.checkUpdates) {
+            val version = this.pluginContainer.metadata().version().toString()
+            val updater = ModrinthUpdater(this.julLogger, version)
+            this.updater = updater
+            updater.checkForUpdatesAsync(this.config.debug)
         }
 
         this.loadServerSync()

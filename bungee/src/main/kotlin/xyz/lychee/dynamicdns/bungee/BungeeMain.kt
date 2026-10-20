@@ -14,6 +14,7 @@ import org.bstats.bungeecord.Metrics
 import xyz.lychee.dynamicdns.shared.AddressUtil
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
@@ -37,9 +38,11 @@ class BungeeMain : Plugin(), Listener {
         private set
     var dynu: DynuHook? = null
         private set
+    var updater: ModrinthUpdater? = null
+        private set
 
     override fun onEnable() {
-        this.metrics = Metrics(this, 27000)
+        this.metrics = Metrics(this, 27418)
         try {
             val yamlDoc = YamlDocument.create(
                 File(this.dataFolder, "config.yml"),
@@ -88,6 +91,12 @@ class BungeeMain : Plugin(), Listener {
 
         if (cfg.dynu.enabled) {
             dynuHook.load(address)
+        }
+
+        if (cfg.checkUpdates) {
+            val updater = ModrinthUpdater(this.logger, this.description.version)
+            this.updater = updater
+            updater.checkForUpdatesAsync(cfg.debug)
         }
 
         this.loadServers()

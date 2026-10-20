@@ -36,6 +36,10 @@ class DynamicDnsConfig(
         private set
 
     @Volatile
+    var checkUpdates: Boolean = true
+        private set
+
+    @Volatile
     var ngrok: NgrokConfig = NgrokConfig()
         private set
 
@@ -58,6 +62,7 @@ class DynamicDnsConfig(
         yamlDocument.reload()
 
         this.debug = yamlDocument.getBoolean("debug", false)
+        this.checkUpdates = yamlDocument.getBoolean("check_updates", true)
 
         val ngrokEnabled = yamlDocument.getBoolean("ngrok.enabled", false)
         val ngrokToken = yamlDocument.getString("ngrok.token") ?: ""

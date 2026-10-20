@@ -1,6 +1,9 @@
 # Global debug logging – logs every sync ping sent and heartbeat received
 debug: false
 
+# Automatically check for updates on startup via Modrinth
+check_updates: true
+
 # Configuration for ngrok – creates secure tunnels to local servers
 ngrok:
   # Set to true to enable ngrok tunneling

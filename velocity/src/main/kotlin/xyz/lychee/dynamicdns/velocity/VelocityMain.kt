@@ -22,13 +22,13 @@ import org.bstats.velocity.Metrics
 import xyz.lychee.dynamicdns.shared.AddressUtil
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
+import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 class VelocityMain @Inject constructor(
@@ -51,10 +51,11 @@ class VelocityMain @Inject constructor(
     val ngrok: NgrokHook = NgrokHook(logger, proxy.boundAddress, config.ngrok)
     val dynu: DynuHook = DynuHook(logger, config.dynu)
     var metrics: Metrics? = null
+    var updater: ModrinthUpdater? = null
 
     @Subscribe
     fun onInit(event: ProxyInitializeEvent) {
-        this.metrics = this.metricsFactory.make(this, 27000)
+        this.metrics = this.metricsFactory.make(this, 27419)
         val commandManager = this.proxy.commandManager
         val meta = commandManager.metaBuilder("dynamicdns")
             .aliases("ddns")
@@ -78,6 +79,13 @@ class VelocityMain @Inject constructor(
 
         if (this.config.dynu.enabled) {
             this.dynu.load(address)
+        }
+
+        if (this.config.checkUpdates) {
+            val version = proxy.pluginManager.fromInstance(this).flatMap { it.description.version }.orElse(ModrinthUpdater.CURRENT_VERSION)
+            val updater = ModrinthUpdater(this.logger, version)
+            this.updater = updater
+            updater.checkForUpdatesAsync(this.config.debug)
         }
 
         this.loadServers()
