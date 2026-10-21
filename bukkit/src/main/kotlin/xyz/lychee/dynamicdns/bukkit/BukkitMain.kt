@@ -143,19 +143,9 @@ class BukkitMain : JavaPlugin() {
         val targetHost = split[0]
         val targetPort = split[1].toIntOrNull() ?: return false
         val targetAddress = InetSocketAddress(targetHost, targetPort)
+        val currentPort = server.port
 
-        val portOrIp = if (this.config.ngrok.enabled && this.ngrok != null) {
-            try {
-                val ngrokAddr = AddressUtil.parseAddressFromUri(this.ngrok!!.load())
-                "${ngrokAddr.hostString}:${ngrokAddr.port}"
-            } catch (e: Exception) {
-                "${server.port}"
-            }
-        } else {
-            "${server.port}"
-        }
-
-        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, currentPort, secure = true)
         MinecraftPacketUtil.sendSyncHandshake(targetAddress, payload, 5000)
         this.lastSyncSentTime = System.currentTimeMillis()
 

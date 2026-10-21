@@ -164,27 +164,12 @@ class BungeeMain : Plugin(), Listener {
         }
 
         val serverName = parsed.serverName
-        val targetPortOrIp = parsed.targetPortOrIp
+        val port = parsed.port
 
-        val targetAddress: InetSocketAddress = if (targetPortOrIp.contains(":")) {
-            val sub = targetPortOrIp.split(":", limit = 2)
-            val port = sub[1].toIntOrNull()
-            if (port == null) {
-                this.logger.warning("Invalid port in sync address: $targetPortOrIp")
-                return
-            }
-            InetSocketAddress(sub[0], port)
-        } else {
-            val port = targetPortOrIp.toIntOrNull()
-            if (port != null) {
-                val remoteIp = (remoteAddress as? InetSocketAddress)?.address?.hostAddress
-                    ?: (remoteAddress as? InetSocketAddress)?.hostString
-                    ?: "127.0.0.1"
-                InetSocketAddress(remoteIp, port)
-            } else {
-                InetSocketAddress(targetPortOrIp, 25565)
-            }
-        }
+        val remoteIp = (remoteAddress as? InetSocketAddress)?.address?.hostAddress
+            ?: (remoteAddress as? InetSocketAddress)?.hostString
+            ?: "127.0.0.1"
+        val targetAddress = InetSocketAddress(remoteIp, port)
 
         serverLastUpdate[serverName] = System.currentTimeMillis()
 

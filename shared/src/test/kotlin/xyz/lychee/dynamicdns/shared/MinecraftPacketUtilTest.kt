@@ -70,16 +70,16 @@ class MinecraftPacketUtilTest {
     fun testCreateAndVerifySyncPayloadV2() {
         val token = "mySecret123"
         val name = "lobby"
-        val portOrIp = "25567"
+        val port = 25567
 
-        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, port, secure = true)
         assertTrue(payload.startsWith("sync.v2."))
 
         // Verify valid payload
         val result = MinecraftPacketUtil.parseAndVerifySyncPayload(payload, token)
         assertNotNull(result)
         assertEquals(name, result?.serverName)
-        assertEquals(portOrIp, result?.targetPortOrIp)
+        assertEquals(port, result?.port)
 
         // Verify wrong token rejection
         val wrongResult = MinecraftPacketUtil.parseAndVerifySyncPayload(payload, "wrongToken")
@@ -90,15 +90,15 @@ class MinecraftPacketUtilTest {
     fun testLegacySyncPayloadCompatibility() {
         val token = "legacyKey"
         val name = "survival"
-        val portOrIp = "127.0.0.1:25566"
+        val port = 25566
 
-        val legacyPayload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = false)
-        assertEquals("sync.legacyKey.survival.127.0.0.1:25566", legacyPayload)
+        val legacyPayload = MinecraftPacketUtil.createSyncPayload(token, name, port, secure = false)
+        assertEquals("sync.legacyKey.survival.25566", legacyPayload)
 
         val result = MinecraftPacketUtil.parseAndVerifySyncPayload(legacyPayload, token)
         assertNotNull(result)
         assertEquals(name, result?.serverName)
-        assertEquals(portOrIp, result?.targetPortOrIp)
+        assertEquals(port, result?.port)
 
         val wrongResult = MinecraftPacketUtil.parseAndVerifySyncPayload(legacyPayload, "differentKey")
         assertNull(wrongResult)
@@ -108,9 +108,9 @@ class MinecraftPacketUtilTest {
     fun testV2PayloadTamperedRejected() {
         val token = "testKey"
         val name = "node1"
-        val portOrIp = "25565"
+        val port = 25565
 
-        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, port, secure = true)
         val tamperedPayload = payload.replace("node1", "node2")
 
         val result = MinecraftPacketUtil.parseAndVerifySyncPayload(tamperedPayload, token)

@@ -186,18 +186,7 @@ class SpongeMain @Inject constructor(
         val targetAddress = InetSocketAddress(targetHost, targetPort)
 
         val currentPort = Sponge.server().boundAddress().map { it.port }.orElse(25565)
-        val portOrIp = if (this.config.ngrok.enabled && this.ngrok != null) {
-            try {
-                val ngrokAddr = AddressUtil.parseAddressFromUri(this.ngrok!!.load())
-                "${ngrokAddr.hostString}:${ngrokAddr.port}"
-            } catch (e: Exception) {
-                "$currentPort"
-            }
-        } else {
-            "$currentPort"
-        }
-
-        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, currentPort, secure = true)
         MinecraftPacketUtil.sendSyncHandshake(targetAddress, payload, 5000)
         this.lastSyncSentTime = System.currentTimeMillis()
 
