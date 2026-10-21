@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "xyz.lychee.dynamicdns"
-version = "2.1"
+version = "2.2"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
