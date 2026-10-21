@@ -24,6 +24,45 @@ dynu:
   # Dynu API secret or password
   secret: ''
 
+# Configuration for Cloudflare DNS – updates A and/or AAAA records via API v4
+cloudflare:
+  # Set to true to enable Cloudflare DNS updates
+  enabled: false
+  # API Token with Zone.DNS:Edit permissions
+  api_token: ""
+  # Zone ID from your Cloudflare domain overview page
+  zone_id: ""
+  # Domain name to update (e.g., mc.example.com)
+  domain: "mc.example.com"
+  # Whether to update the IPv4 (A) record
+  update_ipv4: true
+  # Whether to update the IPv6 (AAAA) record
+  update_ipv6: false
+  # Whether the DNS record should be proxied through Cloudflare (orange cloud; false recommended for Minecraft)
+  proxied: false
+
+# Configuration for DuckDNS – free dynamic DNS service
+duckdns:
+  # Set to true to enable DuckDNS updates
+  enabled: false
+  # DuckDNS subdomain name (e.g. "myserver" for myserver.duckdns.org)
+  domain: ""
+  # DuckDNS account token
+  token: ""
+  # Whether to also send IPv6 address
+  update_ipv6: false
+
+# Configuration for No-IP / DynDNS v2 protocol
+noip:
+  # Set to true to enable No-IP updates
+  enabled: false
+  # Registered hostname (e.g. example.ddns.net)
+  domain: ""
+  # No-IP account username
+  username: ""
+  # No-IP account password
+  password: ""
+
 # Subserver address synchronization via Minecraft Handshake ping (Velocity / BungeeCord / Paper / Spigot / Sponge)
 server_sync:
   # Set to true to enable synchronization (on proxy: accepts sync pings; on subserver: sends sync pings)

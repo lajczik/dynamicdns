@@ -48,6 +48,18 @@ class DynamicDnsConfig(
         private set
 
     @Volatile
+    var cloudflare: CloudflareConfig = CloudflareConfig()
+        private set
+
+    @Volatile
+    var duckdns: DuckDnsConfig = DuckDnsConfig()
+        private set
+
+    @Volatile
+    var noip: NoIpConfig = NoIpConfig()
+        private set
+
+    @Volatile
     var serverSync: ServerSyncConfig = ServerSyncConfig()
         private set
 
@@ -82,6 +94,30 @@ class DynamicDnsConfig(
             domain = dynuDomain,
             client = dynuClient,
             secret = dynuSecret
+        )
+
+        this.cloudflare = CloudflareConfig(
+            enabled = yamlDocument.getBoolean("cloudflare.enabled", false),
+            apiToken = yamlDocument.getString("cloudflare.api_token") ?: "",
+            zoneId = yamlDocument.getString("cloudflare.zone_id") ?: "",
+            domain = yamlDocument.getString("cloudflare.domain") ?: "",
+            updateIpv4 = yamlDocument.getBoolean("cloudflare.update_ipv4", true),
+            updateIpv6 = yamlDocument.getBoolean("cloudflare.update_ipv6", false),
+            proxied = yamlDocument.getBoolean("cloudflare.proxied", false)
+        )
+
+        this.duckdns = DuckDnsConfig(
+            enabled = yamlDocument.getBoolean("duckdns.enabled", false),
+            domain = yamlDocument.getString("duckdns.domain") ?: "",
+            token = yamlDocument.getString("duckdns.token") ?: "",
+            updateIpv6 = yamlDocument.getBoolean("duckdns.update_ipv6", false)
+        )
+
+        this.noip = NoIpConfig(
+            enabled = yamlDocument.getBoolean("noip.enabled", false),
+            domain = yamlDocument.getString("noip.domain") ?: "",
+            username = yamlDocument.getString("noip.username") ?: "",
+            password = yamlDocument.getString("noip.password") ?: ""
         )
 
         val syncEnabled = if (yamlDocument.contains("server_sync.enabled")) {

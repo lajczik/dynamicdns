@@ -9,11 +9,14 @@ import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
 import xyz.lychee.dynamicdns.shared.AddressUtil
+import xyz.lychee.dynamicdns.shared.CloudflareHook
+import xyz.lychee.dynamicdns.shared.DuckDnsHook
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
 import xyz.lychee.dynamicdns.shared.MinecraftPacketUtil
 import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
+import xyz.lychee.dynamicdns.shared.NoIpHook
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -29,7 +32,15 @@ class BukkitMain : JavaPlugin() {
     var metrics: Metrics? = null
     var ngrok: NgrokHook? = null
     var dynu: DynuHook? = null
+    var cloudflare: CloudflareHook? = null
+    var duckdns: DuckDnsHook? = null
+    var noip: NoIpHook? = null
     var updater: ModrinthUpdater? = null
+
+    @Volatile
+    var lastSyncSentTime: Long = 0L
+    @Volatile
+    var lastResolvedAddress: InetSocketAddress? = null
 
     companion object {
         @JvmStatic
@@ -70,17 +81,42 @@ class BukkitMain : JavaPlugin() {
         val bind = InetSocketAddress(Bukkit.getIp(), Bukkit.getPort())
         val ngrokHook = NgrokHook(this.logger, bind, this.config.ngrok)
         val dynuHook = DynuHook(this.logger, this.config.dynu)
+        val cfHook = CloudflareHook(this.logger, this.config.cloudflare)
+        val duckHook = DuckDnsHook(this.logger, this.config.duckdns)
+        val noipHook = NoIpHook(this.logger, this.config.noip)
+
         this.ngrok = ngrokHook
         this.dynu = dynuHook
+        this.cloudflare = cfHook
+        this.duckdns = duckHook
+        this.noip = noipHook
 
-        val address = if (this.config.ngrok.enabled) {
-            AddressUtil.parseAddressFromUri(ngrokHook.load())
+        val publicIp = if (this.config.ngrok.enabled) {
+            AddressUtil.parseAddressFromUri(ngrokHook.load()).address
         } else {
-            InetSocketAddress(AddressUtil.checkPublicIp(), Bukkit.getPort())
+            AddressUtil.checkPublicIp()
         }
+        val address = InetSocketAddress(publicIp, Bukkit.getPort())
+        this.lastResolvedAddress = address
 
         if (this.config.dynu.enabled) {
             dynuHook.load(address)
+        }
+
+        val ipv6 = if (this.config.cloudflare.updateIpv6 || this.config.duckdns.updateIpv6) {
+            AddressUtil.checkPublicIpv6()
+        } else null
+
+        if (this.config.cloudflare.enabled) {
+            cfHook.load(publicIp, ipv6)
+        }
+
+        if (this.config.duckdns.enabled) {
+            duckHook.load(publicIp, ipv6)
+        }
+
+        if (this.config.noip.enabled) {
+            noipHook.load(publicIp)
         }
 
         if (this.config.checkUpdates) {
@@ -92,6 +128,43 @@ class BukkitMain : JavaPlugin() {
         this.loadServerSync()
     }
 
+    fun sendSyncPing(): Boolean {
+        val syncConfig = this.config.serverSync
+        if (!syncConfig.enabled) return false
+
+        val token = syncConfig.token
+        val name = syncConfig.name
+        val addressStr = syncConfig.targetAddress
+        if (token.isBlank() || name.isBlank() || addressStr.isBlank()) return false
+
+        val split = addressStr.split(":")
+        if (split.size != 2) return false
+
+        val targetHost = split[0]
+        val targetPort = split[1].toIntOrNull() ?: return false
+        val targetAddress = InetSocketAddress(targetHost, targetPort)
+
+        val portOrIp = if (this.config.ngrok.enabled && this.ngrok != null) {
+            try {
+                val ngrokAddr = AddressUtil.parseAddressFromUri(this.ngrok!!.load())
+                "${ngrokAddr.hostString}:${ngrokAddr.port}"
+            } catch (e: Exception) {
+                "${server.port}"
+            }
+        } else {
+            "${server.port}"
+        }
+
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        MinecraftPacketUtil.sendSyncHandshake(targetAddress, payload, 5000)
+        this.lastSyncSentTime = System.currentTimeMillis()
+
+        if (this.config.debug) {
+            this.logger.info("Sent sync ping to $targetAddress with payload: $payload")
+        }
+        return true
+    }
+
     @Throws(Exception::class)
     fun loadServerSync() {
         this.task?.cancel()
@@ -101,54 +174,26 @@ class BukkitMain : JavaPlugin() {
             return
         }
 
-        val token = syncConfig.token
-        if (token.isBlank()) {
+        if (syncConfig.token.isBlank()) {
             this.logger.warning("Value server_sync.token has not been set!")
             return
         }
 
-        val name = syncConfig.name
-        if (name.isBlank()) {
+        if (syncConfig.name.isBlank()) {
             this.logger.warning("Value server_sync.name has not been set!")
             return
         }
 
-        val addressStr = syncConfig.targetAddress
-        if (addressStr.isBlank()) {
+        if (syncConfig.targetAddress.isBlank()) {
             this.logger.warning("Value server_sync.target_address has not been set!")
             return
         }
 
-        val split = addressStr.split(":")
-        if (split.size != 2) {
-            this.logger.warning("Invalid server_sync target address format. Expected format: host:port")
-            return
-        }
-
-        val targetHost = split[0]
-        val targetPort = split[1].toInt()
         val interval = 20L * syncConfig.interval
 
         this.task = Bukkit.getScheduler().runTaskTimerAsynchronously(this, {
             try {
-                val targetAddress = InetSocketAddress(targetHost, targetPort)
-                val portOrIp = if (this.config.ngrok.enabled && this.ngrok != null) {
-                    try {
-                        val ngrokAddr = AddressUtil.parseAddressFromUri(this.ngrok!!.load())
-                        "${ngrokAddr.hostString}:${ngrokAddr.port}"
-                    } catch (e: Exception) {
-                        "${server.port}"
-                    }
-                } else {
-                    "${server.port}"
-                }
-
-                val payload = "sync.$token.$name.$portOrIp"
-                MinecraftPacketUtil.sendSyncHandshake(targetAddress, payload, 5000)
-
-                if (this.config.debug) {
-                    this.logger.info("Sent sync ping to $targetAddress with payload: $payload")
-                }
+                sendSyncPing()
             } catch (e: IOException) {
                 this.logger.warning("Failed to send update: ${e.message}")
             } catch (t: Throwable) {
