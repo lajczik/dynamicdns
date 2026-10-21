@@ -10,11 +10,18 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 
 ## Features
 
-- **Port-Free Subserver Synchronization:** Subservers ping the proxy using native Minecraft Handshake packets (`sync.<token>.<name>.<port>`). No extra open ports or firewall adjustments are needed on the proxy.
+- **Port-Free Subserver Synchronization:** Subservers ping the proxy using native Minecraft Handshake packets signed with HMAC-SHA256 (`sync.v2.<timestamp>.<name>.<port>.<signature>`). No extra open ports or firewall adjustments are needed on the proxy.
+- **Anti-Replay Handshake Verification:** Timestamped HMAC signatures with clock-drift checks prevent unauthorized registration or replay attacks, with seamless backward-compatibility for legacy payloads.
 - **Proxy Configuration Persistence:** Automatically registers, updates, and persists subserver addresses directly into `velocity.toml` (Velocity) or `config.yml` (BungeeCord).
+- **Subserver Status & Last Update Tracking:** Displays real-time registration status and accurate `last update` timestamps across all registered backend nodes.
+- **Multiple DDNS Providers:**
+  - **Cloudflare DNS API:** Automated updates for root or subdomain `A` (IPv4) and `AAAA` (IPv6) records with configurable proxy (orange cloud) status.
+  - **DuckDNS:** Instant HTTP/HTTPS updates with dual-stack IPv4 and IPv6 support.
+  - **No-IP / DynDNS v2:** Automated hostname updates using HTTP Basic Auth.
+  - **Dynu DDNS:** Updates Dynu domains and SRV records automatically with your current public IP address or ngrok hostname.
+- **Dual-Stack IPv4 & IPv6 Detection:** Native public IPv4 and IPv6 resolution via redundant global lookup services.
 - **Built-in ngrok Tunneling:** Automatically exposes local servers via ngrok TCP tunnels and propagates the assigned public tunnel endpoint to your proxy or Dynu.
-- **Dynu DDNS Hook:** Updates Dynu Dynamic DNS domains and SRV records automatically with your current public IP address or ngrok hostname.
-- **Integrated Modrinth Update Checker:** Checks for new releases against Modrinth API asynchronously in the background.
+- **Integrated Modrinth Update Checker:** Checks for new releases against the Modrinth API asynchronously in the background.
 - **All-in-One Universal Jar:** One unified artifact supports all platforms.
 
 ---
@@ -37,7 +44,7 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 |               Subserver (Spigot / Paper / Sponge)                 |
 |                                                                   |
 |   1. Periodically sends handshake ping:                           |
-|      virtualHost = "sync.<token>.<server_name>.<port>"            |
+|      virtualHost = "sync.v2.<timestamp>.<name>.<port>.<hmac>"     |
 +---------------------------------+---------------------------------+
                                   |
                (Standard Minecraft Port, e.g. 25565)
@@ -46,16 +53,17 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 |                  Proxy (Velocity / BungeeCord)                    |
 |                                                                   |
 |   2. Intercepts incoming handshake/ping connection                |
-|   3. Validates secret token                                       |
+|   3. Verifies HMAC-SHA256 signature and timestamp validity        |
 |   4. Updates subserver address in proxy server registry           |
 |   5. Saves updated address to velocity.toml or config.yml         |
-|   6. Closes the sync connection immediately                       |
+|   6. Records 'last update' timestamp and drops connection         |
 +-------------------------------------------------------------------+
 ```
 
 1. The subserver runs a repeating background task sending a handshake ping to the proxy's regular Minecraft address and port.
-2. The payload contains the shared secret token, subserver identifier, and target port/IP.
-3. The proxy verifies the token, updates the subserver route dynamically in memory, persists it to file, and terminates the sync ping handshake without proxying player traffic.
+2. The payload contains a Unix timestamp, subserver identifier, target port/IP, and a 32-character HMAC-SHA256 signature calculated with the shared secret token.
+3. The proxy verifies the signature and validates that the timestamp falls within the clock drift tolerance window.
+4. The proxy updates the subserver route dynamically in memory, persists it to file, refreshes the `last update` tracker, and terminates the sync ping handshake without proxying player traffic.
 
 ---
 
@@ -91,7 +99,7 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 ## Configuration Reference (`config.yml`)
 
 ```yaml
-# Global debug logging - logs every sync ping sent and heartbeat received
+# Global debug logging - logs every sync ping sent and hook execution
 debug: false
 
 # Automatically check for updates on startup via Modrinth
@@ -109,6 +117,29 @@ dynu:
   domain: "example.dynu.com"
   client: ""
   secret: ""
+
+# Configuration for Cloudflare DNS API (A and AAAA records)
+cloudflare:
+  enabled: false
+  api_token: ""
+  zone_id: ""
+  record_name: "play.yourdomain.com"
+  proxied: false
+  update_ipv6: false
+
+# Configuration for DuckDNS
+duckdns:
+  enabled: false
+  domain: "myserver"
+  token: ""
+  update_ipv6: false
+
+# Configuration for No-IP / DynDNS v2
+noip:
+  enabled: false
+  hostname: "myserver.ddns.net"
+  username: ""
+  password: ""
 
 # Subserver address synchronization via Minecraft Handshake ping
 server_sync:
@@ -130,10 +161,12 @@ server_sync:
 
 | Command | Aliases | Description | Permission |
 | :--- | :--- | :--- | :--- |
+| `/dynamicdns status` | `/ddns status` | Displays active provider hooks, registered subservers, and last update timestamps | `dynamicdns.reload` or `dynamicdns.admin` |
+| `/dynamicdns sync` | `/ddns sync` | Forces an immediate sync ping to the configured proxy (subserver only) | `dynamicdns.reload` or `dynamicdns.admin` |
 | `/dynamicdns reload` | `/ddns reload` | Reloads `config.yml` and restarts active hooks | `dynamicdns.reload` or `dynamicdns.admin` |
 | `/dynamicdns update` | `/ddns update` | Checks Modrinth for available plugin updates | `dynamicdns.reload` or `dynamicdns.admin` |
 
-*By default, permissions are granted to server operators (`op`).*
+*By default, permissions are granted to server operators (`op`) or administrators.*
 
 ---
 
