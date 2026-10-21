@@ -166,10 +166,8 @@ class BungeeMain : Plugin(), Listener {
         val serverName = parsed.serverName
         val port = parsed.port
 
-        val remoteIp = (remoteAddress as? InetSocketAddress)?.address?.hostAddress
-            ?: (remoteAddress as? InetSocketAddress)?.hostString
-            ?: "127.0.0.1"
-        val targetAddress = InetSocketAddress(remoteIp, port)
+        val remoteInetAddress = (remoteAddress as? InetSocketAddress)?.address ?: InetAddress.getLoopbackAddress()
+        val targetAddress = InetSocketAddress(remoteInetAddress, port)
 
         serverLastUpdate[serverName] = System.currentTimeMillis()
 
