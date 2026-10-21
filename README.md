@@ -6,8 +6,6 @@
 
 No separate port forward, custom daemons or DNS propagation delays are required — address changes are synchronized in real-time directly through Minecraft's native networking layer.
 
----
-
 ## Features
 
 - **Port-Free Subserver Synchronization:** Subservers ping the proxy using native Minecraft Handshake packets (`sync.<token>.<name>.<port>`). No extra open ports or firewall adjustments are needed on the proxy.
@@ -17,8 +15,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 - **Integrated Modrinth Update Checker:** Checks for new releases against Modrinth API asynchronously in the background.
 - **All-in-One Universal Jar:** One unified artifact supports all platforms.
 
----
-
 ## Supported Platforms
 
 | Platform | Type | Minimum Version |
@@ -27,8 +23,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 | **BungeeCord / Waterfall** | Proxy | 1.8.8 – 26.4 |
 | **Paper / Purpur / Spigot / Folia** | Subserver | 1.8.8 – 26.4 |
 | **Sponge** | Subserver | SpongeAPI 8+ (Minecraft 1.16.5+) |
-
----
 
 ## How It Works
 
@@ -86,8 +80,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
    ```
 4. Reload the configuration with `/dynamicdns reload` or restart the subserver. The proxy will automatically register the subserver's current IP and port.
 
----
-
 ## Configuration Reference (`config.yml`)
 
 ```yaml
@@ -124,8 +116,6 @@ server_sync:
   interval: 30
 ```
 
----
-
 ## Commands & Permissions
 
 | Command | Aliases | Description | Permission |
@@ -134,8 +124,6 @@ server_sync:
 | `/dynamicdns update` | `/ddns update` | Checks Modrinth for available plugin updates | `dynamicdns.reload` or `dynamicdns.admin` |
 
 *By default, permissions are granted to server operators (`op`).*
-
----
 
 ## Building from Source
 
@@ -150,8 +138,6 @@ cd dynamicdns
 
 The compiled universal JAR will be located at:
 `build/libs/DynamicDNS-2.X.jar`
-
----
 
 ## License
 
