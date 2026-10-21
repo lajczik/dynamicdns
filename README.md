@@ -1,5 +1,3 @@
-# DynamicDNS
-
 ![dynamicdns](https://i.imgur.com/Q5TXoQp.png)
 
 **DynamicDNS** is a lightweight, cross-platform Minecraft plugin and proxy extension that keeps your subservers connected and reachable even when hosted on dynamic IP addresses (such as home servers or VPS nodes without static IPs).
