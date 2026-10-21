@@ -65,12 +65,27 @@ class DynamicDnsCommand(private val plugin: BungeeMain) :
             return
         }
 
-        sender.sendMessage(*color("&e[DynamicDNS] Usage: /dynamicdns <reload|update>"))
+        if (args.isNotEmpty() && args[0].equals("status", ignoreCase = true)) {
+            sender.sendMessage(*color("&e[DynamicDNS] --- BungeeCord Proxy Status ---"))
+            sender.sendMessage(*color("&7Registered subservers: &f${plugin.servers.size}"))
+            val now = System.currentTimeMillis()
+            plugin.servers.forEach { (name, addr) ->
+                val lastUpdate = plugin.serverLastUpdate[name]
+                val lastUpdateStr = if (lastUpdate != null) {
+                    val seconds = (now - lastUpdate) / 1000L
+                    if (seconds < 60) "${seconds}s ago" else "${seconds / 60}m ${seconds % 60}s ago"
+                } else "never"
+                sender.sendMessage(*color(" &8- &a$name&7: &f${addr.hostString}:${addr.port} &7(last update: &e$lastUpdateStr&7)"))
+            }
+            return
+        }
+
+        sender.sendMessage(*color("&e[DynamicDNS] Usage: /dynamicdns <reload|update|status>"))
     }
 
     override fun onTabComplete(sender: CommandSender, args: Array<out String>): Iterable<String> {
         if (args.size == 1 && (sender.hasPermission("dynamicdns.reload") || sender.hasPermission("dynamicdns.admin"))) {
-            return listOf("reload", "update").filter { it.startsWith(args[0].lowercase()) }
+            return listOf("reload", "update", "status").filter { it.startsWith(args[0].lowercase()) }
         }
         return emptyList()
     }

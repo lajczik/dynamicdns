@@ -56,14 +56,29 @@ class DynamicDnsCommand(private val plugin: VelocityMain) : SimpleCommand {
             return
         }
 
-        source.sendMessage(color("&e[DynamicDNS] Usage: /dynamicdns <reload|update>"))
+        if (args.isNotEmpty() && args[0].equals("status", ignoreCase = true)) {
+            source.sendMessage(color("&e[DynamicDNS] --- Velocity Proxy Status ---"))
+            source.sendMessage(color("&7Registered subservers: &f${plugin.servers.size}"))
+            val now = System.currentTimeMillis()
+            plugin.servers.forEach { (name, addr) ->
+                val lastUpdate = plugin.serverLastUpdate[name]
+                val lastUpdateStr = if (lastUpdate != null) {
+                    val seconds = (now - lastUpdate) / 1000L
+                    if (seconds < 60) "${seconds}s ago" else "${seconds / 60}m ${seconds % 60}s ago"
+                } else "never"
+                source.sendMessage(color(" &8- &a$name&7: &f${addr.hostString}:${addr.port} &7(last update: &e$lastUpdateStr&7)"))
+            }
+            return
+        }
+
+        source.sendMessage(color("&e[DynamicDNS] Usage: /dynamicdns <reload|update|status>"))
     }
 
     override fun suggest(invocation: SimpleCommand.Invocation): List<String> {
         val args = invocation.arguments()
         if (args.size <= 1 && hasPermission(invocation)) {
             val prefix = if (args.isEmpty()) "" else args[0].lowercase()
-            return listOf("reload", "update").filter { it.startsWith(prefix) }
+            return listOf("reload", "update", "status").filter { it.startsWith(prefix) }
         }
         return emptyList()
     }

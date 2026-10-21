@@ -22,6 +22,7 @@ import org.bstats.velocity.Metrics
 import xyz.lychee.dynamicdns.shared.AddressUtil
 import xyz.lychee.dynamicdns.shared.DynamicDnsConfig
 import xyz.lychee.dynamicdns.shared.DynuHook
+import xyz.lychee.dynamicdns.shared.MinecraftPacketUtil
 import xyz.lychee.dynamicdns.shared.ModrinthUpdater
 import xyz.lychee.dynamicdns.shared.NgrokHook
 import java.io.File
@@ -29,6 +30,7 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 class VelocityMain @Inject constructor(
@@ -47,6 +49,7 @@ class VelocityMain @Inject constructor(
     val config: DynamicDnsConfig = DynamicDnsConfig(configDoc, isProxy = true)
     val servers: MutableMap<String, InetSocketAddress>
         get() = config.servers
+    val serverLastUpdate: MutableMap<String, Long> = ConcurrentHashMap()
 
     val ngrok: NgrokHook = NgrokHook(logger, proxy.boundAddress, config.ngrok)
     val dynu: DynuHook = DynuHook(logger, config.dynu)
@@ -145,22 +148,15 @@ class VelocityMain @Inject constructor(
             return
         }
 
-        val cleanHost = virtualHost.trimEnd('.')
-        val parts = cleanHost.split(".", limit = 4)
-        if (parts.size < 4 || parts[0] != "sync") {
-            this.logger.warning("Invalid sync payload structure from $remoteAddress: $virtualHost")
-            return
-        }
-
-        val receivedToken = parts[1]
-        val serverName = parts[2]
-        val targetPortOrIp = parts[3]
-
         val expectedToken = this.config.serverSync.token
-        if (expectedToken.isBlank() || receivedToken != expectedToken) {
-            this.logger.warning("Rejected sync update from $remoteAddress: invalid token!")
+        val parsed = MinecraftPacketUtil.parseAndVerifySyncPayload(virtualHost, expectedToken)
+        if (parsed == null) {
+            this.logger.warning("Rejected sync update from $remoteAddress: invalid or expired payload structure ($virtualHost)")
             return
         }
+
+        val serverName = parsed.serverName
+        val targetPortOrIp = parsed.targetPortOrIp
 
         val targetAddress: InetSocketAddress = if (targetPortOrIp.contains(":")) {
             val sub = targetPortOrIp.split(":", limit = 2)
@@ -182,6 +178,8 @@ class VelocityMain @Inject constructor(
             }
         }
 
+        serverLastUpdate[serverName] = System.currentTimeMillis()
+
         val existingInfo = proxy.getServer(serverName).map { it.serverInfo }.orElse(null)
         if (existingInfo != null && existingInfo.address == targetAddress && servers[serverName] == targetAddress) {
             if (this.config.debug) {
@@ -197,7 +195,8 @@ class VelocityMain @Inject constructor(
         val newInfo = ServerInfo(serverName, targetAddress)
         proxy.registerServer(newInfo)
         servers[serverName] = targetAddress
-        this.logger.info("Synchronized server $serverName with address $targetAddress (from $remoteAddress)")
+        val secLabel = if (parsed.isSecure) " (HMAC verified)" else ""
+        this.logger.info("Synchronized server $serverName with address $targetAddress$secLabel (from $remoteAddress)")
 
         saveServers()
     }
