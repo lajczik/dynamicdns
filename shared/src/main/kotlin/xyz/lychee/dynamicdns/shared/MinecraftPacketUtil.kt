@@ -7,7 +7,6 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.charset.StandardCharsets
-import kotlin.math.abs
 
 data class ParsedSyncPayload(
     val serverName: String,
@@ -19,8 +18,8 @@ object MinecraftPacketUtil {
 
     /**
      * Builds a sync handshake virtualHost string.
-     * When [secure] is true, generates a timestamped HMAC-SHA256 signed payload:
-     * `sync.v2.<timestamp>.<name>.<portOrIp>.<signature>`
+     * When [secure] is true, generates a HMAC-SHA256 signed payload:
+     * `sync.v2.<name>.<portOrIp>.<signature>`
      * Otherwise generates legacy payload:
      * `sync.<token>.<name>.<portOrIp>`
      */
@@ -31,10 +30,9 @@ object MinecraftPacketUtil {
         secure: Boolean = true
     ): String {
         return if (secure && token.isNotBlank()) {
-            val timestamp = System.currentTimeMillis() / 1000L
-            val dataToSign = "$timestamp.$name.$portOrIp"
+            val dataToSign = "$name.$portOrIp"
             val signature = HmacUtil.sign(token, dataToSign)
-            "sync.v2.$timestamp.$name.$portOrIp.$signature"
+            "sync.v2.$name.$portOrIp.$signature"
         } else {
             "sync.$token.$name.$portOrIp"
         }
@@ -46,26 +44,18 @@ object MinecraftPacketUtil {
      */
     fun parseAndVerifySyncPayload(
         virtualHost: String,
-        expectedToken: String,
-        maxClockDriftSeconds: Long = 120L
+        expectedToken: String
     ): ParsedSyncPayload? {
         val cleanHost = virtualHost.trimEnd('.')
         val parts = cleanHost.split(".")
 
-        // Format v2: sync.v2.<timestamp>.<name>.<portOrIp>.<signature>
-        if (parts.size >= 6 && parts[0] == "sync" && parts[1] == "v2") {
-            val timestamp = parts[2].toLongOrNull() ?: return null
-            val name = parts[3]
+        // Format v2: sync.v2.<name>.<portOrIp>.<signature>
+        if (parts.size >= 5 && parts[0] == "sync" && parts[1] == "v2") {
+            val name = parts[2]
             val signature = parts.last()
-            // In case portOrIp contains dots or IP parts:
-            val portOrIp = parts.subList(4, parts.size - 1).joinToString(".")
+            val portOrIp = parts.subList(3, parts.size - 1).joinToString(".")
 
-            val now = System.currentTimeMillis() / 1000L
-            if (abs(now - timestamp) > maxClockDriftSeconds) {
-                return null
-            }
-
-            val dataToSign = "$timestamp.$name.$portOrIp"
+            val dataToSign = "$name.$portOrIp"
             if (!HmacUtil.verify(expectedToken, dataToSign, signature)) {
                 return null
             }

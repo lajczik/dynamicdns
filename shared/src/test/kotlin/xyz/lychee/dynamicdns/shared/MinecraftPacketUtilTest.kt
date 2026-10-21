@@ -105,18 +105,16 @@ class MinecraftPacketUtilTest {
     }
 
     @Test
-    fun testV2PayloadReplayExpired() {
+    fun testV2PayloadTamperedRejected() {
         val token = "testKey"
         val name = "node1"
         val portOrIp = "25565"
-        val expiredTimestamp = (System.currentTimeMillis() / 1000L) - 200L // 200 seconds ago
 
-        val rawData = "$expiredTimestamp.$name.$portOrIp"
-        val sig = HmacUtil.sign(token, rawData)
-        val expiredPayload = "sync.v2.$expiredTimestamp.$name.$portOrIp.$sig"
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        val tamperedPayload = payload.replace("node1", "node2")
 
-        val result = MinecraftPacketUtil.parseAndVerifySyncPayload(expiredPayload, token)
-        assertNull(result, "Expired payload should be rejected")
+        val result = MinecraftPacketUtil.parseAndVerifySyncPayload(tamperedPayload, token)
+        assertNull(result, "Tampered payload should be rejected")
     }
 
     @Test
