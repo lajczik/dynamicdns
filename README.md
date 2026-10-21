@@ -161,12 +161,12 @@ server_sync:
 
 | Command | Aliases | Description | Permission |
 | :--- | :--- | :--- | :--- |
-| `/dynamicdns status` | `/ddns status` | Displays active provider hooks, registered subservers, and last update timestamps | `dynamicdns.reload` or `dynamicdns.admin` |
-| `/dynamicdns sync` | `/ddns sync` | Forces an immediate sync ping to the configured proxy (subserver only) | `dynamicdns.reload` or `dynamicdns.admin` |
-| `/dynamicdns reload` | `/ddns reload` | Reloads `config.yml` and restarts active hooks | `dynamicdns.reload` or `dynamicdns.admin` |
-| `/dynamicdns update` | `/ddns update` | Checks Modrinth for available plugin updates | `dynamicdns.reload` or `dynamicdns.admin` |
+| `/dynamicdns status` | `/ddns status` | Displays active provider hooks, registered subservers, and last update timestamps | `dynamicdns.status` |
+| `/dynamicdns sync` | `/ddns sync` | Forces an immediate sync ping to the configured proxy (subserver only) | `dynamicdns.sync` |
+| `/dynamicdns reload` | `/ddns reload` | Reloads `config.yml` and restarts active hooks | `dynamicdns.reload` |
+| `/dynamicdns update` | `/ddns update` | Checks Modrinth for available plugin updates | `dynamicdns.update` |
 
-*By default, permissions are granted to server operators (`op`) or administrators.*
+*The `dynamicdns.admin` permission grants full access to all commands. By default, permissions are granted to server operators (`op`) or administrators.*
 
 ---
 

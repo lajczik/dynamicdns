@@ -32,20 +32,23 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
         }
     }
 
+    private fun hasPerm(sender: CommandSender, perm: String): Boolean {
+        return sender.hasPermission("dynamicdns.admin") || sender.hasPermission(perm)
+    }
+
     override fun onCommand(
         sender: CommandSender,
         command: Command,
         label: String,
         args: Array<out String>
     ): Boolean {
-        if (!sender.hasPermission("dynamicdns.reload") && !sender.hasPermission("dynamicdns.admin")) {
-            sender.sendMessage(color("&cYou do not have permission to execute this command!"))
-            return true
-        }
-
         if (args.isNotEmpty()) {
             when (args[0].lowercase()) {
                 "reload" -> {
+                    if (!hasPerm(sender, "dynamicdns.reload")) {
+                        sender.sendMessage(color("&cYou do not have permission to execute this command!"))
+                        return true
+                    }
                     try {
                         plugin.reload()
                         sender.sendMessage(color("&a[DynamicDNS] Configuration reloaded successfully!"))
@@ -56,6 +59,10 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
                     return true
                 }
                 "update" -> {
+                    if (!hasPerm(sender, "dynamicdns.update")) {
+                        sender.sendMessage(color("&cYou do not have permission to execute this command!"))
+                        return true
+                    }
                     sender.sendMessage(color("&e[DynamicDNS] Checking for updates..."))
                     val updater = plugin.updater ?: ModrinthUpdater(plugin.logger, plugin.description.version)
                     updater.checkForUpdatesAsync(debug = true, force = true) { result ->
@@ -69,6 +76,10 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
                     return true
                 }
                 "sync" -> {
+                    if (!hasPerm(sender, "dynamicdns.sync")) {
+                        sender.sendMessage(color("&cYou do not have permission to execute this command!"))
+                        return true
+                    }
                     if (!plugin.config.serverSync.enabled) {
                         sender.sendMessage(color("&c[DynamicDNS] server_sync is disabled in config.yml!"))
                         return true
@@ -89,6 +100,10 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
                     return true
                 }
                 "status" -> {
+                    if (!hasPerm(sender, "dynamicdns.status")) {
+                        sender.sendMessage(color("&cYou do not have permission to execute this command!"))
+                        return true
+                    }
                     sender.sendMessage(color("&e[DynamicDNS] --- Subserver Status ---"))
                     val sync = plugin.config.serverSync
                     sender.sendMessage(color("&7Server Sync: " + if (sync.enabled) "&aEnabled" else "&cDisabled"))
@@ -122,7 +137,12 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
             }
         }
 
-        sender.sendMessage(color("&e[DynamicDNS] Usage: /$label <reload|update|sync|status>"))
+        val available = listOf("reload", "update", "sync", "status").filter { hasPerm(sender, "dynamicdns.$it") }
+        if (available.isEmpty()) {
+            sender.sendMessage(color("&cYou do not have permission to execute this command!"))
+        } else {
+            sender.sendMessage(color("&e[DynamicDNS] Usage: /$label <${available.joinToString("|")}>"))
+        }
         return true
     }
 
@@ -132,8 +152,9 @@ class DynamicDnsCommand(private val plugin: BukkitMain) : CommandExecutor, TabCo
         alias: String,
         args: Array<out String>
     ): List<String> {
-        if (args.size == 1 && (sender.hasPermission("dynamicdns.reload") || sender.hasPermission("dynamicdns.admin"))) {
-            return listOf("reload", "update", "sync", "status").filter { it.startsWith(args[0].lowercase()) }
+        if (args.size == 1) {
+            val available = listOf("reload", "update", "sync", "status").filter { hasPerm(sender, "dynamicdns.$it") }
+            return available.filter { it.startsWith(args[0].lowercase()) }
         }
         return emptyList()
     }

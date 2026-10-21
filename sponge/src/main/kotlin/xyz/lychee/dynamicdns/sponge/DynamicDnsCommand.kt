@@ -28,7 +28,7 @@ class DynamicDnsCommand(private val plugin: SpongeMain) {
         val reloadSubcommand = Command.builder()
             .permission("dynamicdns.reload")
             .executionRequirements { cause ->
-                cause.hasPermission("dynamicdns.reload") || cause.hasPermission("dynamicdns.admin")
+                cause.hasPermission("dynamicdns.admin") || cause.hasPermission("dynamicdns.reload")
             }
             .executor { context: CommandContext ->
                 try {
@@ -43,9 +43,9 @@ class DynamicDnsCommand(private val plugin: SpongeMain) {
             .build()
 
         val updateSubcommand = Command.builder()
-            .permission("dynamicdns.reload")
+            .permission("dynamicdns.update")
             .executionRequirements { cause ->
-                cause.hasPermission("dynamicdns.reload") || cause.hasPermission("dynamicdns.admin")
+                cause.hasPermission("dynamicdns.admin") || cause.hasPermission("dynamicdns.update")
             }
             .executor { context: CommandContext ->
                 context.sendMessage(Identity.nil(), color("&e[DynamicDNS] Checking for updates..."))
@@ -64,9 +64,9 @@ class DynamicDnsCommand(private val plugin: SpongeMain) {
             .build()
 
         val statusSubcommand = Command.builder()
-            .permission("dynamicdns.reload")
+            .permission("dynamicdns.status")
             .executionRequirements { cause ->
-                cause.hasPermission("dynamicdns.reload") || cause.hasPermission("dynamicdns.admin")
+                cause.hasPermission("dynamicdns.admin") || cause.hasPermission("dynamicdns.status")
             }
             .executor { context: CommandContext ->
                 val ip = plugin.lastResolvedAddress?.address?.hostAddress ?: "Unknown"
@@ -90,9 +90,9 @@ class DynamicDnsCommand(private val plugin: SpongeMain) {
             .build()
 
         val syncSubcommand = Command.builder()
-            .permission("dynamicdns.reload")
+            .permission("dynamicdns.sync")
             .executionRequirements { cause ->
-                cause.hasPermission("dynamicdns.reload") || cause.hasPermission("dynamicdns.admin")
+                cause.hasPermission("dynamicdns.admin") || cause.hasPermission("dynamicdns.sync")
             }
             .executor { context: CommandContext ->
                 if (!plugin.config.serverSync.enabled) {
@@ -118,16 +118,27 @@ class DynamicDnsCommand(private val plugin: SpongeMain) {
             .build()
 
         return Command.builder()
-            .permission("dynamicdns.reload")
             .executionRequirements { cause ->
-                cause.hasPermission("dynamicdns.reload") || cause.hasPermission("dynamicdns.admin")
+                cause.hasPermission("dynamicdns.admin") ||
+                        cause.hasPermission("dynamicdns.reload") ||
+                        cause.hasPermission("dynamicdns.update") ||
+                        cause.hasPermission("dynamicdns.status") ||
+                        cause.hasPermission("dynamicdns.sync")
             }
             .addChild(reloadSubcommand, "reload")
             .addChild(updateSubcommand, "update")
             .addChild(statusSubcommand, "status")
             .addChild(syncSubcommand, "sync")
             .executor { context: CommandContext ->
-                context.sendMessage(Identity.nil(), color("&e[DynamicDNS] Usage: /dynamicdns <reload|update|status|sync>"))
+                val cause = context.cause()
+                val available = listOf("reload", "update", "status", "sync").filter {
+                    cause.hasPermission("dynamicdns.admin") || cause.hasPermission("dynamicdns.$it")
+                }
+                if (available.isEmpty()) {
+                    context.sendMessage(Identity.nil(), color("&cYou do not have permission to execute this command!"))
+                } else {
+                    context.sendMessage(Identity.nil(), color("&e[DynamicDNS] Usage: /dynamicdns <${available.joinToString("|")}>"))
+                }
                 CommandResult.success()
             }
             .build()

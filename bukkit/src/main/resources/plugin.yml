@@ -7,14 +7,24 @@ commands:
   dynamicdns:
     description: DynamicDNS command
     aliases: [ddns]
-    permission: dynamicdns.reload
-    permission-message: "&cYou do not have permission to execute this command!"
 permissions:
-  dynamicdns.reload:
-    description: Allows reloading DynamicDNS configuration
-    default: op
   dynamicdns.admin:
-    description: Full access to DynamicDNS
+    description: Full access to all DynamicDNS commands
     default: op
     children:
       dynamicdns.reload: true
+      dynamicdns.update: true
+      dynamicdns.status: true
+      dynamicdns.sync: true
+  dynamicdns.reload:
+    description: Allows reloading DynamicDNS configuration
+    default: op
+  dynamicdns.update:
+    description: Allows checking for DynamicDNS updates
+    default: op
+  dynamicdns.status:
+    description: Allows viewing DynamicDNS status
+    default: op
+  dynamicdns.sync:
+    description: Allows forcing a DynamicDNS sync ping
+    default: op
