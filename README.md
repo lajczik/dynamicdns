@@ -1,12 +1,8 @@
-# DynamicDNS
-
 ![dynamicdns](https://i.imgur.com/Q5TXoQp.png)
 
 **DynamicDNS** is a lightweight, cross-platform Minecraft plugin and proxy extension that keeps your subservers connected and reachable even when hosted on dynamic IP addresses (such as home servers or VPS nodes without static IPs).
 
 No separate port forward, custom daemons or DNS propagation delays are required — address changes are synchronized in real-time directly through Minecraft's native networking layer.
-
----
 
 ## Features
 
@@ -24,8 +20,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 - **Integrated Modrinth Update Checker:** Checks for new releases against the Modrinth API asynchronously in the background.
 - **All-in-One Universal Jar:** One unified artifact supports all platforms.
 
----
-
 ## Supported Platforms
 
 | Platform | Type | Minimum Version |
@@ -34,8 +28,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 | **BungeeCord / Waterfall** | Proxy | 1.8.8 – 26.4 |
 | **Paper / Purpur / Spigot / Folia** | Subserver | 1.8.8 – 26.4 |
 | **Sponge** | Subserver | SpongeAPI 8+ (Minecraft 1.16.5+) |
-
----
 
 ## How It Works
 
@@ -65,8 +57,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
 3. The proxy verifies the signature using its shared secret.
 4. The proxy updates the subserver route dynamically in memory, persists it to file, records the proxy-side `last update` timestamp, and terminates the sync ping handshake without proxying player traffic.
 
----
-
 ## Installation & Setup
 
 ### 1. Proxy Setup (Velocity or BungeeCord)
@@ -93,8 +83,6 @@ No separate port forward, custom daemons or DNS propagation delays are required 
      interval: 30                        # Sync interval in seconds
    ```
 4. Reload the configuration with `/dynamicdns reload` or restart the subserver. The proxy will automatically register the subserver's current IP and port.
-
----
 
 ## Configuration Reference (`config.yml`)
 
@@ -155,8 +143,6 @@ server_sync:
   interval: 30
 ```
 
----
-
 ## Commands & Permissions
 
 | Command | Aliases | Description | Permission |
@@ -167,8 +153,6 @@ server_sync:
 | `/dynamicdns update` | `/ddns update` | Checks Modrinth for available plugin updates | `dynamicdns.update` |
 
 *The `dynamicdns.admin` permission grants full access to all commands. By default, permissions are granted to server operators (`op`) or administrators.*
-
----
 
 ## Building from Source
 
@@ -183,8 +167,6 @@ cd dynamicdns
 
 The compiled universal JAR will be located at:
 `build/libs/DynamicDNS-2.X.jar`
-
----
 
 ## License
 
