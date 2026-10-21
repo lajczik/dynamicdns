@@ -129,8 +129,6 @@ class BungeeMain : Plugin(), Listener {
         val virtualHost = event.connection.virtualHost?.hostString ?: return
         if (!virtualHost.startsWith("sync.")) return
 
-        // Drop the ping response and close the connection
-        event.response = null
         try {
             event.connection.disconnect(TextComponent(""))
         } catch (ignored: Exception) {}

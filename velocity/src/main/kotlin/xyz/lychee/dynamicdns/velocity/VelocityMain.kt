@@ -122,9 +122,8 @@ class VelocityMain @Inject constructor(
 
         if (!virtualHost.startsWith("sync.")) return
 
-        // Immediately cancel the ping event and close the connection without Netty reflection
+        // Immediately deny the ping event without setting ping to null
         event.result = ResultedEvent.GenericResult.denied()
-        event.ping = null
 
         handleSyncPayload(virtualHost, event.connection.remoteAddress)
     }
