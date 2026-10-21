@@ -2,6 +2,9 @@ package xyz.lychee.dynamicdns.shared
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -61,5 +64,71 @@ class MinecraftPacketUtilTest {
     @Test
     fun testStatusRequestPacket() {
         assertArrayEquals(byteArrayOf(0x01, 0x00), MinecraftPacketUtil.STATUS_REQUEST_PACKET)
+    }
+
+    @Test
+    fun testCreateAndVerifySyncPayloadV2() {
+        val token = "mySecret123"
+        val name = "lobby"
+        val portOrIp = "25567"
+
+        val payload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = true)
+        assertTrue(payload.startsWith("sync.v2."))
+
+        // Verify valid payload
+        val result = MinecraftPacketUtil.parseAndVerifySyncPayload(payload, token)
+        assertNotNull(result)
+        assertEquals(name, result?.serverName)
+        assertEquals(portOrIp, result?.targetPortOrIp)
+
+        // Verify wrong token rejection
+        val wrongResult = MinecraftPacketUtil.parseAndVerifySyncPayload(payload, "wrongToken")
+        assertNull(wrongResult)
+    }
+
+    @Test
+    fun testLegacySyncPayloadCompatibility() {
+        val token = "legacyKey"
+        val name = "survival"
+        val portOrIp = "127.0.0.1:25566"
+
+        val legacyPayload = MinecraftPacketUtil.createSyncPayload(token, name, portOrIp, secure = false)
+        assertEquals("sync.legacyKey.survival.127.0.0.1:25566", legacyPayload)
+
+        val result = MinecraftPacketUtil.parseAndVerifySyncPayload(legacyPayload, token)
+        assertNotNull(result)
+        assertEquals(name, result?.serverName)
+        assertEquals(portOrIp, result?.targetPortOrIp)
+
+        val wrongResult = MinecraftPacketUtil.parseAndVerifySyncPayload(legacyPayload, "differentKey")
+        assertNull(wrongResult)
+    }
+
+    @Test
+    fun testV2PayloadReplayExpired() {
+        val token = "testKey"
+        val name = "node1"
+        val portOrIp = "25565"
+        val expiredTimestamp = (System.currentTimeMillis() / 1000L) - 200L // 200 seconds ago
+
+        val rawData = "$expiredTimestamp.$name.$portOrIp"
+        val sig = HmacUtil.sign(token, rawData)
+        val expiredPayload = "sync.v2.$expiredTimestamp.$name.$portOrIp.$sig"
+
+        val result = MinecraftPacketUtil.parseAndVerifySyncPayload(expiredPayload, token)
+        assertNull(result, "Expired payload should be rejected")
+    }
+
+    @Test
+    fun testHmacUtilHex() {
+        val key = "secret"
+        val message = "hello world"
+        val hmac1 = HmacUtil.sign(key, message)
+        val hmac2 = HmacUtil.sign(key, message)
+
+        assertEquals(hmac1, hmac2)
+        assertEquals(32, hmac1.length)
+        assertTrue(HmacUtil.verify(key, message, hmac1))
+        assertTrue(!HmacUtil.verify(key, "tampered", hmac1))
     }
 }

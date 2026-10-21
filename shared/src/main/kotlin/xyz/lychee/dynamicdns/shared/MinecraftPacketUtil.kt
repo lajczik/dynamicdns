@@ -7,8 +7,87 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import kotlin.math.abs
+
+data class ParsedSyncPayload(
+    val serverName: String,
+    val targetPortOrIp: String,
+    val isSecure: Boolean
+)
 
 object MinecraftPacketUtil {
+
+    /**
+     * Builds a sync handshake virtualHost string.
+     * When [secure] is true, generates a timestamped HMAC-SHA256 signed payload:
+     * `sync.v2.<timestamp>.<name>.<portOrIp>.<signature>`
+     * Otherwise generates legacy payload:
+     * `sync.<token>.<name>.<portOrIp>`
+     */
+    fun createSyncPayload(
+        token: String,
+        name: String,
+        portOrIp: String,
+        secure: Boolean = true
+    ): String {
+        return if (secure && token.isNotBlank()) {
+            val timestamp = System.currentTimeMillis() / 1000L
+            val dataToSign = "$timestamp.$name.$portOrIp"
+            val signature = HmacUtil.sign(token, dataToSign)
+            "sync.v2.$timestamp.$name.$portOrIp.$signature"
+        } else {
+            "sync.$token.$name.$portOrIp"
+        }
+    }
+
+    /**
+     * Parses and verifies an incoming virtualHost handshake payload against the [expectedToken].
+     * Supports both HMAC v2 format and legacy token format.
+     */
+    fun parseAndVerifySyncPayload(
+        virtualHost: String,
+        expectedToken: String,
+        maxClockDriftSeconds: Long = 120L
+    ): ParsedSyncPayload? {
+        val cleanHost = virtualHost.trimEnd('.')
+        val parts = cleanHost.split(".")
+
+        // Format v2: sync.v2.<timestamp>.<name>.<portOrIp>.<signature>
+        if (parts.size >= 6 && parts[0] == "sync" && parts[1] == "v2") {
+            val timestamp = parts[2].toLongOrNull() ?: return null
+            val name = parts[3]
+            val signature = parts.last()
+            // In case portOrIp contains dots or IP parts:
+            val portOrIp = parts.subList(4, parts.size - 1).joinToString(".")
+
+            val now = System.currentTimeMillis() / 1000L
+            if (abs(now - timestamp) > maxClockDriftSeconds) {
+                return null
+            }
+
+            val dataToSign = "$timestamp.$name.$portOrIp"
+            if (!HmacUtil.verify(expectedToken, dataToSign, signature)) {
+                return null
+            }
+
+            return ParsedSyncPayload(name, portOrIp, isSecure = true)
+        }
+
+        // Format legacy: sync.<token>.<name>.<portOrIp>
+        if (parts.size >= 4 && parts[0] == "sync") {
+            val receivedToken = parts[1]
+            val name = parts[2]
+            val portOrIp = parts.drop(3).joinToString(".")
+
+            if (expectedToken.isBlank() || receivedToken != expectedToken) {
+                return null
+            }
+
+            return ParsedSyncPayload(name, portOrIp, isSecure = false)
+        }
+
+        return null
+    }
 
     /**
      * Writes a Minecraft VarInt to the given OutputStream.
@@ -76,15 +155,10 @@ object MinecraftPacketUtil {
         nextState: Int = 1
     ): ByteArray {
         val dataStream = ByteArrayOutputStream()
-        // Packet ID 0x00 (Handshake)
         writeVarInt(dataStream, 0x00)
-        // Protocol Version
         writeVarInt(dataStream, protocolVersion)
-        // Server Address (String)
         writeString(dataStream, hostname)
-        // Server Port (Unsigned Short)
         writeUnsignedShort(dataStream, port)
-        // Next State (VarInt: 1 = STATUS)
         writeVarInt(dataStream, nextState)
 
         val packetData = dataStream.toByteArray()
